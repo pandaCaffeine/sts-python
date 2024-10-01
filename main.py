@@ -31,25 +31,7 @@ async def resolve_storage_client() -> StorageClient:
     return storage_client
 
 
-async def get_settings() -> AppSettings:
-    return app_settings
-
-
-async def minio_client() -> Minio:
-    return s3Client
-
-
 app = FastAPI()
-
-
-def stream_response(http_response: BaseHTTPResponse) -> Generator:
-    try:
-        source_stream = http_response.stream()
-        for chunk in source_stream:
-            yield chunk
-    finally:
-        http_response.close()
-        http_response.release_conn()
 
 
 def stream_bytesio(data: BytesIO) -> Generator:
@@ -59,27 +41,6 @@ def stream_bytesio(data: BytesIO) -> Generator:
         while buffer and len(buffer) > 0:
             yield buffer
             buffer = data.read()
-
-
-def test_file_in_bucket(s3client: Minio, bucket: str, object_name: str) -> Object | None:
-    try:
-        result = s3client.stat_object(bucket_name=bucket, object_name=object_name)
-        return result
-    except S3Error:
-        return None
-
-
-def read_file_to_memory(http_response: BaseHTTPResponse) -> BytesIO:
-    result = BytesIO()
-    try:
-        data = http_response.stream()
-        for chunk in data:
-            result.write(chunk)
-        result.seek(0, os.SEEK_SET)
-        return result
-    finally:
-        http_response.close()
-        http_response.release_conn()
 
 
 @app.get("/{bucket}/{filename}")
