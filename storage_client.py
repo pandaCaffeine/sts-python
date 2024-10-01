@@ -4,6 +4,8 @@ from dataclasses import dataclass
 from io import BytesIO
 
 from minio import Minio, S3Error
+from minio.commonconfig import ENABLED
+from minio.lifecycleconfig import LifecycleConfig, Rule, Transition
 from urllib3 import BaseHTTPResponse
 
 
@@ -43,6 +45,7 @@ class StorageClient(ABC):
     """
     An abstract interface to storage client
     """
+
     @abstractmethod
     def get_file_stat(self, directory: str, file_name: str) -> StorageFileItem | None:
         """
@@ -77,6 +80,15 @@ class StorageClient(ABC):
         """
         pass
 
+    @abstractmethod
+    def try_create_dir(self, directory: str) -> bool:
+        """
+        Tries to create directory in storage
+        :param directory: Directory name
+        :return: True if directory was created, False if directory already exists
+        """
+        pass
+
 
 class S3StorageClient(StorageClient):
     _minioClient: Minio
@@ -85,6 +97,20 @@ class S3StorageClient(StorageClient):
         assert minio is not None, "Minio client is required"
 
         self._minioClient = minio
+
+    def try_create_dir(self, directory: str) -> bool:
+        if self._minioClient.bucket_exists(directory):
+            return False
+
+        self._minioClient.make_bucket(directory)
+
+        ttl_config = LifecycleConfig(
+            [
+                Rule(ENABLED, rule_id="stsTtlRule", transition=Transition(days=30))
+            ]
+        )
+        self._minioClient.set_bucket_lifecycle(directory, ttl_config)
+        return True
 
     def get_file_stat(self, directory: str, file_name: str) -> StorageFileItem | None:
         try:
