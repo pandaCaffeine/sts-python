@@ -8,7 +8,10 @@ from urllib3 import BaseHTTPResponse
 
 
 @dataclass
-class StorageItem:
+class StorageFileItem:
+    """
+    Contains file's information
+    """
     directory: str
     """ File location """
     name: str
@@ -21,6 +24,14 @@ class StorageItem:
     """ File's Etag """
 
     def __init__(self, directory: str, name: str, size: int, content_type: str, etag: str):
+        """
+        Constructor
+        :param directory: Directory
+        :param name: File name
+        :param size: File size in bytes
+        :param content_type: Content type, MIME type
+        :param etag: File's Etag
+        """
         self.directory = directory
         self.name = name
         self.size = size
@@ -33,7 +44,7 @@ class StorageClient(ABC):
     An abstract interface to storage client
     """
     @abstractmethod
-    def get_file_stat(self, directory: str, file_name: str) -> StorageItem | None:
+    def get_file_stat(self, directory: str, file_name: str) -> StorageFileItem | None:
         """
         Returns files stats (:class:`StorageItem`)
         :param directory: Directory
@@ -75,11 +86,11 @@ class S3StorageClient(StorageClient):
 
         self._minioClient = minio
 
-    def get_file_stat(self, directory: str, file_name: str) -> StorageItem | None:
+    def get_file_stat(self, directory: str, file_name: str) -> StorageFileItem | None:
         try:
             object_stat = self._minioClient.stat_object(bucket_name=directory, object_name=file_name)
-            return StorageItem(directory=directory, name=file_name, size=object_stat.size,
-                               content_type=object_stat.content_type, etag=object_stat.etag)
+            return StorageFileItem(directory=directory, name=file_name, size=object_stat.size,
+                                   content_type=object_stat.content_type, etag=object_stat.etag)
         except S3Error:
             # file was not found
             return None
