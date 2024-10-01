@@ -12,6 +12,7 @@ from starlette.responses import StreamingResponse
 from urllib3 import BaseHTTPResponse
 
 from config import app_settings, AppSettings
+from storage_client import StorageClient, S3StorageClient
 
 HEADER_ETAG = "Etag"
 HEADER_LEN = "Content-Length"
@@ -21,6 +22,12 @@ FORMAT_JPEG = "JPEG"
 s3Client = Minio(endpoint=app_settings.s3.endpoint, access_key=app_settings.s3.access_key,
                  secret_key=app_settings.s3.secret_key, region=app_settings.s3.region,
                  cert_check=app_settings.s3.trust_cert, secure=app_settings.s3.use_tsl)
+
+storage_client: StorageClient = S3StorageClient(s3Client)
+
+
+async def resolve_storage_client() -> StorageClient:
+    return storage_client
 
 
 async def get_settings() -> AppSettings:
@@ -120,4 +127,11 @@ def get_thumbnail(bucket: str, filename: str,
 
 
 if __name__ == "__main__":
+    buckets = app_settings.buckets
+    if len(buckets) > 0:
+        for bucket_name in buckets.keys():
+            storage_client.try_create_dir(bucket_name)
+    else:
+        pass
+
     uvicorn.run(app, host="0.0.0.0", port=8000)
