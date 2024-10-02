@@ -118,10 +118,12 @@ class _StorageResponse(StorageResponse):
         self.__http_response = http_response
 
     def read_to_end(self) -> Iterable[bytes]:
-        with self:
+        try:
             stream = self.__http_response.stream()
             for chunk in stream:
                 yield chunk
+        finally:
+            self.close()
 
     def close(self):
         self.__http_response.close()
@@ -172,7 +174,6 @@ class S3StorageClient(StorageClient):
             return StorageFileItem(directory=directory, name=file_name, size=object_stat.size,
                                    content_type=object_stat.content_type, etag=object_stat.etag)
         except S3Error:
-            # file was not found
             return None
 
     def put_file(self, directory: str, file_name: str, content: BytesIO, content_type: str,

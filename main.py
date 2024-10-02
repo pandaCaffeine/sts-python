@@ -3,17 +3,14 @@ from io import BytesIO
 from typing import Annotated, Generator
 
 import uvicorn
-from Crypto.SelfTest.Cipher.test_CBC import file_name
 from PIL import Image
 from fastapi import FastAPI, Header, Response, status, HTTPException
 from fastapi.params import Depends
-from minio import Minio, S3Error
-from minio.datatypes import Object
-from starlette.responses import StreamingResponse
-from urllib3 import BaseHTTPResponse
+from minio import Minio
+from starlette.responses import StreamingResponse, JSONResponse
 
-from config import app_settings, AppSettings
-from storage_client import StorageClient, S3StorageClient, StorageResponse
+from config import app_settings
+from storage_client import StorageClient, S3StorageClient
 
 HEADER_ETAG = "Etag"
 HEADER_LEN = "Content-Length"
@@ -27,20 +24,29 @@ s3Client = Minio(endpoint=app_settings.s3.endpoint, access_key=app_settings.s3.a
 storage_client: StorageClient = S3StorageClient(s3Client)
 
 
-async def resolve_storage_client() -> StorageClient:
-    return storage_client
-
-
-app = FastAPI()
-
-
-def stream_bytesio(data: BytesIO) -> Generator:
+def __stream_bytesio(data: BytesIO) -> Generator:
     data.seek(0, os.SEEK_SET)
     with data:
         buffer: bytes = data.read()
         while buffer and len(buffer) > 0:
             yield buffer
             buffer = data.read()
+
+
+def __resize_image(data: BytesIO, width: float, height: float) -> BytesIO:
+    with data:
+        with Image.open(data) as im:
+            im.thumbnail((width, height))
+            result = BytesIO()
+            im.save(result, format=FORMAT_JPEG)
+            return result
+
+
+app = FastAPI()
+
+
+async def resolve_storage_client() -> StorageClient:
+    return storage_client
 
 
 @app.get("/{bucket}/{filename}")
@@ -54,25 +60,20 @@ def get_thumbnail(bucket: str, filename: str,
             return Response(status_code=status.HTTP_304_NOT_MODIFIED, headers=headers)
 
         r = s3client.open_stream(bucket, filename)
-        with r:
-            headers = {HEADER_ETAG: thumbnail_stat.etag, HEADER_LEN: str(thumbnail_stat.size)}
-            return StreamingResponse(r.read_to_end(), media_type=thumbnail_stat.content_type, headers=headers)
+        headers = {HEADER_ETAG: thumbnail_stat.etag, HEADER_LEN: str(thumbnail_stat.size)}
+        return StreamingResponse(r.read_to_end(), media_type=thumbnail_stat.content_type, headers=headers)
 
-    source_file_stat = s3client.get_file_stat(app_settings.source_bucket, file_name)
+    source_file_stat = s3client.get_file_stat(app_settings.source_bucket, filename)
     if not source_file_stat:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="File not found")
+        return JSONResponse(status_code=status.HTTP_404_NOT_FOUND, content={"detail": "File not found"})
 
-    size = (float(app_settings.buckets[bucket].width), float(app_settings.buckets[bucket].height))
-    image_mem = s3client.load_file(bucket, filename)
-    with image_mem:
-        with Image.open(image_mem) as im:
-            im.thumbnail(size)
-            thumbnail_data = BytesIO()
-            im.save(thumbnail_data, format=FORMAT_JPEG)
+    image_data = s3client.load_file(app_settings.source_bucket, filename)
+    thumbnail_data = __resize_image(image_data, float(app_settings.buckets[bucket].width),
+                                    float(app_settings.buckets[bucket].height))
 
     put_result = s3client.put_file(bucket, filename, thumbnail_data, content_type=CONTENT_TYPE_JPEG)
     headers = {HEADER_ETAG: put_result.etag, HEADER_LEN: str(put_result.size)}
-    return StreamingResponse(stream_bytesio(thumbnail_data), media_type=CONTENT_TYPE_JPEG, headers=headers)
+    return StreamingResponse(__stream_bytesio(thumbnail_data), media_type=CONTENT_TYPE_JPEG, headers=headers)
 
 
 if __name__ == "__main__":
