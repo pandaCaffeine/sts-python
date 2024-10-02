@@ -4,7 +4,7 @@ from typing import Annotated, Generator
 
 import uvicorn
 from PIL import Image
-from fastapi import FastAPI, Header, Response, status, HTTPException
+from fastapi import FastAPI, Header, Response, status
 from fastapi.params import Depends
 from minio import Minio
 from starlette.responses import StreamingResponse, JSONResponse
