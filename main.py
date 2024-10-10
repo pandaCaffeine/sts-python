@@ -4,6 +4,7 @@ from io import BytesIO
 from logging import Logger
 from typing import Annotated, Generator
 
+import PIL
 import uvicorn
 from PIL import Image
 from fastapi import FastAPI, Header, Response, status
@@ -37,14 +38,20 @@ def __stream_bytesio(data: BytesIO) -> Generator:
             buffer = data.read()
 
 
-def __resize_image(data: BytesIO, width: float, height: float) -> BytesIO:
+def __resize_image(data: BytesIO, width: float, height: float) -> tuple[BytesIO | None, Exception | None]:
     with data:
-        with Image.open(data) as im:
-            im.thumbnail((width, height))
-            result = BytesIO()
-            im.save(result, format=FORMAT_JPEG)
-            return result
+        try:
+            with Image.open(data) as im:
+                im.thumbnail((width, height))
+                result = BytesIO()
+                im.save(result, format=FORMAT_JPEG)
+                return result, None
+        except (PIL.UnidentifiedImageError, ValueError, TypeError, Exception) as e:
+            return None, e
 
+
+__NOT_FOUND_RESPONSE: JSONResponse = JSONResponse(status_code=status.HTTP_404_NOT_FOUND,
+                                                  content={"detail": "File not found"})
 
 app = FastAPI()
 
@@ -64,31 +71,36 @@ def get_thumbnail(bucket: str, filename: str,
                   etag: Annotated[str | None, Header(alias="If-None-Match")] = None):
     thumbnail_stat = s3client.get_file_stat(bucket, filename)
     if thumbnail_stat:
-        l.info("Found thumbnail file")
+        l.debug("Found thumbnail file")
         if etag and thumbnail_stat.etag == etag:
-            l.info(f"Requested file has the same etag: {etag}")
+            l.debug(f"Requested file has the same etag: {etag}")
             headers = {HEADER_ETAG: etag}
             return Response(status_code=status.HTTP_304_NOT_MODIFIED, headers=headers)
 
-        l.info("Etag is different, return file from bucket")
+        l.debug("Etag is different, return file from bucket")
         r = s3client.open_stream(bucket, filename)
         headers = {HEADER_ETAG: thumbnail_stat.etag, HEADER_LEN: str(thumbnail_stat.size)}
         return StreamingResponse(r.read_to_end(), media_type=thumbnail_stat.content_type, headers=headers)
 
-    l.info("Try to create thumbnail")
+    l.debug("Try to create thumbnail")
     source_file_stat = s3client.get_file_stat(app_settings.source_bucket, filename)
     if not source_file_stat:
-        l.info("Source file was not found, return 404")
-        return JSONResponse(status_code=status.HTTP_404_NOT_FOUND, content={"detail": "File not found"})
+        l.debug("Source file was not found, return 404")
+        return __NOT_FOUND_RESPONSE
 
     image_data = s3client.load_file(app_settings.source_bucket, filename)
-    l.info("Source file was loaded to memory")
-    thumbnail_data = __resize_image(image_data, float(app_settings.buckets[bucket].width),
-                                    float(app_settings.buckets[bucket].height))
-    l.info("Thumbnail data was created")
+    l.debug("Source file was loaded to memory")
+    thumbnail_data, thumbnail_error = __resize_image(image_data, float(app_settings.buckets[bucket].width),
+                                                     float(app_settings.buckets[bucket].height))
+
+    if thumbnail_error:
+        l.warning(f"Failed to create thumbnail: {thumbnail_error}")
+        return __NOT_FOUND_RESPONSE
+
+    l.debug("Thumbnail data was created")
 
     put_result = s3client.put_file(bucket, filename, thumbnail_data, content_type=CONTENT_TYPE_JPEG)
-    l.info("Thumbnail image was uploaded to storage")
+    l.debug("Thumbnail image was uploaded to storage")
     headers = {HEADER_ETAG: put_result.etag, HEADER_LEN: str(put_result.size)}
     return StreamingResponse(__stream_bytesio(thumbnail_data), media_type=CONTENT_TYPE_JPEG, headers=headers)
 
