@@ -24,7 +24,7 @@ def resize_image(data: BytesIO, width: float, height: float) -> ImageData:
 
                 im.thumbnail((width, height))
                 result = BytesIO()
-                im.save(result, im.format)
+                im.save(result, im.format, optimize=True)
                 return ImageData(mime_type=mime_type, error=None, data=result)
         except (PIL.UnidentifiedImageError, ValueError, TypeError, Exception) as e:
             return ImageData(mime_type=mime_type, error=e, data=None)
