@@ -4,23 +4,19 @@ from io import BytesIO
 from logging import Logger
 from typing import Annotated, Generator
 
-import PIL
 import uvicorn
-from PIL import Image
 from fastapi import FastAPI, Header, Response, status
 from fastapi.params import Depends
+from loguru import logger
 from minio import Minio
 from starlette.responses import StreamingResponse, JSONResponse
 
 from config import app_settings
 from storage_client import StorageClient, S3StorageClient
-
-from loguru import logger
+from image_processor import resize_image
 
 HEADER_ETAG = "Etag"
 HEADER_LEN = "Content-Length"
-CONTENT_TYPE_JPEG = "image/jpeg"
-FORMAT_JPEG = "JPEG"
 
 s3Client = Minio(endpoint=app_settings.s3.endpoint, access_key=app_settings.s3.access_key,
                  secret_key=app_settings.s3.secret_key, region=app_settings.s3.region,
@@ -36,18 +32,6 @@ def __stream_bytesio(data: BytesIO) -> Generator:
         while buffer and len(buffer) > 0:
             yield buffer
             buffer = data.read()
-
-
-def __resize_image(data: BytesIO, width: float, height: float) -> tuple[BytesIO | None, Exception | None]:
-    with data:
-        try:
-            with Image.open(data) as im:
-                im.thumbnail((width, height))
-                result = BytesIO()
-                im.save(result, format=FORMAT_JPEG)
-                return result, None
-        except (PIL.UnidentifiedImageError, ValueError, TypeError, Exception) as e:
-            return None, e
 
 
 __NOT_FOUND_RESPONSE: JSONResponse = JSONResponse(status_code=status.HTTP_404_NOT_FOUND,
@@ -82,6 +66,11 @@ def get_thumbnail(bucket: str, filename: str,
         headers = {HEADER_ETAG: thumbnail_stat.etag, HEADER_LEN: str(thumbnail_stat.size)}
         return StreamingResponse(r.read_to_end(), media_type=thumbnail_stat.content_type, headers=headers)
 
+    bucket_data = app_settings.buckets[bucket]
+    if bucket_data is None:
+        l.debug(f"Configuration was not found for bucket {bucket}")
+        return __NOT_FOUND_RESPONSE
+
     l.debug("Try to create thumbnail")
     source_file_stat = s3client.get_file_stat(app_settings.source_bucket, filename)
     if not source_file_stat:
@@ -90,19 +79,18 @@ def get_thumbnail(bucket: str, filename: str,
 
     image_data = s3client.load_file(app_settings.source_bucket, filename)
     l.debug("Source file was loaded to memory")
-    thumbnail_data, thumbnail_error = __resize_image(image_data, float(app_settings.buckets[bucket].width),
-                                                     float(app_settings.buckets[bucket].height))
+    thumbnail = resize_image(image_data, float(bucket_data.width), float(bucket_data.height))
 
-    if thumbnail_error:
-        l.warning(f"Failed to create thumbnail: {thumbnail_error}")
+    if thumbnail.error:
+        l.warning(f"Failed to create thumbnail: {thumbnail.error}")
         return __NOT_FOUND_RESPONSE
 
     l.debug("Thumbnail data was created")
 
-    put_result = s3client.put_file(bucket, filename, thumbnail_data, content_type=CONTENT_TYPE_JPEG)
+    put_result = s3client.put_file(bucket, filename, thumbnail.data, content_type=thumbnail.mime_type)
     l.debug("Thumbnail image was uploaded to storage")
     headers = {HEADER_ETAG: put_result.etag, HEADER_LEN: str(put_result.size)}
-    return StreamingResponse(__stream_bytesio(thumbnail_data), media_type=CONTENT_TYPE_JPEG, headers=headers)
+    return StreamingResponse(__stream_bytesio(thumbnail.data), media_type=thumbnail.mime_type, headers=headers)
 
 
 def __start_app():
