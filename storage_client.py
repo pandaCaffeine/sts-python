@@ -102,9 +102,10 @@ class StorageClient(ABC):
         pass
 
     @abstractmethod
-    def try_create_dir(self, directory: str) -> bool:
+    def try_create_dir(self, directory: str, life_time_days: int) -> bool:
         """
         Tries to create directory in storage
+        :param life_time_days: How many days files in the bucket live, in days. 30 days by default
         :param directory: Directory name
         :return: True if directory was created, False if directory already exists
         """
@@ -154,18 +155,19 @@ class S3StorageClient(StorageClient):
                 response.release_conn()
             raise e
 
-    def try_create_dir(self, directory: str) -> bool:
+    def try_create_dir(self, directory: str, life_time_days: int) -> bool:
         if self._minioClient.bucket_exists(directory):
             return False
 
         self._minioClient.make_bucket(directory)
 
-        ttl_config = LifecycleConfig(
-            [
-                Rule(ENABLED, rule_id="stsTtlRule", transition=Transition(days=30))
-            ]
-        )
-        self._minioClient.set_bucket_lifecycle(directory, ttl_config)
+        if life_time_days > 0:
+            ttl_config = LifecycleConfig(
+                [
+                    Rule(ENABLED, rule_id="stsTtlRule", transition=Transition(days=life_time_days))
+                ]
+            )
+            self._minioClient.set_bucket_lifecycle(directory, ttl_config)
         return True
 
     def get_file_stat(self, directory: str, file_name: str) -> StorageFileItem | None:

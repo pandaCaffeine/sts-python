@@ -11,6 +11,10 @@ class BucketSettings(BaseModel):
     """
     Thumbnail's height in the bucket, 200px by default
     """
+    life_time_days: int = 30
+    """
+    How many days files in the bucket live, in days. 30 days by default. Set to zero, to make life time infinity.
+    """
 
 
 class S3Settings(BaseModel):

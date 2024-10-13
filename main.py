@@ -103,9 +103,10 @@ def __start_app():
     buckets = app_settings.buckets
     if len(buckets) > 0:
         for bucket_name in buckets.keys():
-            bucket_created = storage_client.try_create_dir(bucket_name)
+            life_time_days = buckets[bucket_name].life_time_days
+            bucket_created = storage_client.try_create_dir(bucket_name, life_time_days)
             if bucket_created:
-                l.info(f"Bucket '{bucket_name}' was created")
+                l.info(f"Bucket '{bucket_name}' was created with life time {life_time_days} days")
             else:
                 l.info(f"Bucket '{bucket_name}' already exists, skip it")
     else:
