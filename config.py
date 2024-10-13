@@ -39,6 +39,14 @@ class AppSettings(BaseSettings):
     """ How long thumbnails are alive, 30 days by default """
     model_config = SettingsConfigDict(env_file=".env", nested_model_default_partial_update=True,
                                       env_nested_delimiter="__", extra='ignore')
+    log_level: str = "INFO"
+    """
+    Logging level
+    """
+    log_fmt: str = "{time} | {level}: {extra} {message}"
+    """
+    Logging message format
+    """
 
 
 app_settings: AppSettings = AppSettings()
