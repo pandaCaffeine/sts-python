@@ -1,5 +1,6 @@
 import os
 import sys
+from functools import lru_cache
 from io import BytesIO
 from logging import Logger
 from typing import Annotated, Generator
@@ -34,25 +35,10 @@ def __stream_bytesio(data: BytesIO) -> Generator:
             buffer = data.read()
 
 
-__NOT_FOUND_RESPONSE: JSONResponse = JSONResponse(status_code=status.HTTP_404_NOT_FOUND,
-                                                  content={"detail": "File not found"})
-
-app = FastAPI()
-
-
-async def resolve_storage_client() -> StorageClient:
-    return storage_client
-
-
-async def resolve_logger(bucket: str, filename: str) -> Logger:
-    return logger.bind(bucket=bucket, filename=filename, source="get_thumbnail")
-
-
-@app.get("/{bucket}/{filename}")
-def get_thumbnail(bucket: str, filename: str,
-                  s3client: Annotated[StorageClient, Depends(resolve_storage_client)],
-                  l: Annotated[Logger, Depends(resolve_logger)],
-                  etag: Annotated[str | None, Header(alias="If-None-Match")] = None):
+def __process_response(bucket: str, filename: str,
+                       s3client: StorageClient,
+                       l: Logger,
+                       etag: str | None) -> Response:
     thumbnail_stat = s3client.get_file_stat(bucket, filename)
     if thumbnail_stat:
         l.debug("Found thumbnail file")
@@ -71,16 +57,15 @@ def get_thumbnail(bucket: str, filename: str,
         l.debug(f"Configuration was not found for bucket {bucket}")
         return __NOT_FOUND_RESPONSE
 
-    l.debug("Try to create thumbnail")
-    source_file_stat = s3client.get_file_stat(app_settings.source_bucket, filename)
+    source_bucket = bucket_data.source_bucket or app_settings.source_bucket
+    source_file_stat = s3client.get_file_stat(source_bucket, filename)
     if not source_file_stat:
         l.debug("Source file was not found, return 404")
         return __NOT_FOUND_RESPONSE
 
-    image_data = s3client.load_file(app_settings.source_bucket, filename)
+    image_data = s3client.load_file(source_bucket, filename)
     l.debug("Source file was loaded to memory")
     thumbnail = resize_image(image_data, float(bucket_data.width), float(bucket_data.height))
-
     if thumbnail.error:
         l.warning(f"Failed to create thumbnail: {thumbnail.error}")
         return __NOT_FOUND_RESPONSE
@@ -93,6 +78,60 @@ def get_thumbnail(bucket: str, filename: str,
     return StreamingResponse(__stream_bytesio(thumbnail.data), media_type=thumbnail.mime_type, headers=headers)
 
 
+__NOT_FOUND_RESPONSE: JSONResponse = JSONResponse(status_code=status.HTTP_404_NOT_FOUND,
+                                                  content={"detail": "File not found"})
+
+app = FastAPI()
+
+
+async def resolve_storage_client() -> StorageClient:
+    return storage_client
+
+
+async def resolve_logger(bucket: str, filename: str) -> Logger:
+    return logger.bind(bucket=bucket, filename=filename, source="get_thumbnail")
+
+
+@lru_cache
+def get_source_buckets():
+    result: list[str] = [app_settings.source_bucket]
+    for bucket_cfg in app_settings.buckets.values():
+        result.append(bucket_cfg.source_bucket)
+    return result
+
+
+@lru_cache()
+def get_alias_map():
+    result = dict[str, str]()
+    for bucket_name, bucket_cfg in app_settings.buckets.items():
+        if not bucket_cfg.alias:
+            continue
+        result[bucket_cfg.alias] = bucket_name
+    return result
+
+
+@app.get("/{bucket}/{filename}")
+def get_thumbnail(bucket: str, filename: str,
+                  s3client: Annotated[StorageClient, Depends(resolve_storage_client)],
+                  l: Annotated[Logger, Depends(resolve_logger)],
+                  etag: Annotated[str | None, Header(alias="If-None-Match")] = None):
+    return __process_response(bucket, filename, s3client, l, etag)
+
+
+@app.get("/{bucket}/{filename}/{alias}")
+def get_thumbnail_for_alias(bucket: str, filename: str, alias: str,
+                            source_buckets: Annotated[list[str], Depends(get_source_buckets)],
+                            alias_map: Annotated[dict[str, str], Depends(get_alias_map)],
+                            s3client: Annotated[StorageClient, Depends(resolve_storage_client)],
+                            l: Annotated[Logger, Depends(resolve_logger)],
+                            etag: Annotated[str | None, Header(alias="If-None-Match")] = None) -> Response:
+    if not bucket in source_buckets:
+        return __NOT_FOUND_RESPONSE
+
+    bucket_name = alias_map.get(alias, bucket)
+    return __process_response(bucket_name, filename, s3client, l, etag)
+
+
 def __start_app():
     logger.remove()
     logger.add(sys.stdout, level=app_settings.log_level, format=app_settings.log_fmt)
@@ -103,9 +142,10 @@ def __start_app():
     buckets = app_settings.buckets
     if len(buckets) > 0:
         for bucket_name in buckets.keys():
-            bucket_created = storage_client.try_create_dir(bucket_name)
+            life_time_days = buckets[bucket_name].life_time_days
+            bucket_created = storage_client.try_create_dir(bucket_name, life_time_days)
             if bucket_created:
-                l.info(f"Bucket '{bucket_name}' was created")
+                l.info(f"Bucket '{bucket_name}' was created with life time {life_time_days} days")
             else:
                 l.info(f"Bucket '{bucket_name}' already exists, skip it")
     else:
