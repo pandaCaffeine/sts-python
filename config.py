@@ -15,6 +15,14 @@ class BucketSettings(BaseModel):
     """
     How many days files in the bucket live, in days. 30 days by default. Set to zero, to make life time infinity.
     """
+    source_bucket: str | None = None
+    """
+    Overrides default source bucket, can be None
+    """
+    alias: str | None = None
+    """
+    Optional alias for the bucket, can be used for alternative routes
+    """
 
 
 class S3Settings(BaseModel):
@@ -39,10 +47,8 @@ class AppSettings(BaseSettings):
     """ Collection of buckets with thumbnail settings """
     source_bucket: str = "images"
     """ Bucket with source images to process """
-    thumbnail_life_span: int = 30
-    """ How long thumbnails are alive, 30 days by default """
     model_config = SettingsConfigDict(env_file=".env", nested_model_default_partial_update=True,
-                                      env_nested_delimiter="__", extra='ignore')
+                                      env_nested_delimiter="__", extra='ignore', case_sensitive=False)
     log_level: str = "INFO"
     """
     Logging level
