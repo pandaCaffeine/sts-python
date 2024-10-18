@@ -12,9 +12,9 @@ from loguru import logger
 from minio import Minio
 from starlette.responses import StreamingResponse, JSONResponse
 
-from config import app_settings
-from storage_client import StorageClient, S3StorageClient
-from image_processor import resize_image
+from app.config import app_settings
+from app.images.storage_client import StorageClient, S3StorageClient
+from app.images.image_processor import resize_image
 
 HEADER_ETAG = "Etag"
 HEADER_LEN = "Content-Length"
