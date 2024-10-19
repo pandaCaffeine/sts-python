@@ -1,10 +1,13 @@
+import logging
 from functools import lru_cache
 from typing import Annotated
 
 from fastapi.params import Depends
+from loguru import logger
 from minio import Minio
 
-from app.config import S3Settings, BucketSettings, app_settings
+from app.config import S3Settings, BucketSettings, app_settings, BucketsMap
+from app.dependencies import get_buckets_map
 from app.images.storage_client import StorageClient, S3StorageClient
 from app.images.thumbnail_service import ThumbnailService
 
@@ -31,32 +34,11 @@ def get_storage_client(minio: Annotated[Minio, Depends(get_minio_client)]) -> St
     return S3StorageClient(minio)
 
 
-@lru_cache
-def get_source_buckets() -> set[str]:
-    result = [s.source_bucket for s in app_settings.buckets.values() if s.source_bucket is not None]
-    result.append(app_settings.source_bucket)
-
-    return set(result)
-
-
-@lru_cache
-def get_default_bucket() -> str:
-    return app_settings.source_bucket
-
-
-@lru_cache
-def get_alias_map() -> dict[str, str]:
-    result = dict[str, str]()
-    for bucket_name, bucket_cfg in app_settings.buckets.items():
-        if bucket_cfg.alias is None:
-            continue
-        result[bucket_cfg.alias] = bucket_name
-    return result
+def get_request_logger(bucket: str, file_name: str):
+    return logger.bind(bucket=bucket, file_name=file_name)
 
 
 def get_thumbnail_service(storage_client: Annotated[StorageClient, Depends(get_storage_client)],
-                          buckets_map: Annotated[dict[str, BucketSettings], Depends(get_buckets_settings)],
-                          source_bucket: Annotated[str, Depends(get_default_bucket)],
-                          all_source_buckets: Annotated[set[str], Depends(get_source_buckets)],
-                          alias_map: Annotated[dict[str, str], Depends(get_alias_map)]) -> ThumbnailService:
-    return ThumbnailService(storage_client, buckets_map, source_bucket, all_source_buckets, alias_map)
+                          buckets_map: Annotated[BucketsMap, Depends(get_buckets_map)],
+                          request_logger: Annotated[logging.Logger, Depends(get_request_logger)]) -> ThumbnailService:
+    return ThumbnailService(storage_client, buckets_map, request_logger)

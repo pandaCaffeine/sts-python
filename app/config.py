@@ -1,3 +1,5 @@
+from dataclasses import dataclass
+
 from pydantic import BaseModel
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -57,6 +59,14 @@ class AppSettings(BaseSettings):
     """
     Logging message format
     """
+
+
+@dataclass(frozen=True)
+class BucketsMap:
+    source_bucket: str
+    buckets: dict[str, BucketSettings]
+    all_source_buckets: set[str]
+    alias_map: dict[str, str]
 
 
 app_settings: AppSettings = AppSettings()
