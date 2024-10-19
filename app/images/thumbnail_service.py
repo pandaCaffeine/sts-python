@@ -1,8 +1,8 @@
 import os
 from io import BytesIO
-from loguru import Logger
-from typing import Generator
+from typing import Iterable
 
+from loguru import logger
 from starlette import status
 from starlette.responses import Response, StreamingResponse, JSONResponse
 
@@ -19,14 +19,13 @@ NOT_FOUND_RESPONSE: JSONResponse = JSONResponse(status_code=status.HTTP_404_NOT_
 
 class ThumbnailService:
     __storage_client: StorageClient
-    __logger: Logger
     __buckets_map: dict[str, BucketSettings]
     __source_bucket: str
     __all_source_buckets: set[str]
     __alias_map: dict[str, str]
 
     @staticmethod
-    def __stream_bytes(data: BytesIO) -> Generator[bytes]:
+    def __stream_bytes(data: BytesIO) -> Iterable[bytes]:
         data.seek(0, os.SEEK_SET)
         with data:
             buffer: bytes = data.read()
@@ -35,15 +34,14 @@ class ThumbnailService:
                 buffer = data.read()
 
     def __init__(self, storage_client: StorageClient, buckets_map: dict[str, BucketSettings], source_bucket: str,
-                 all_source_buckets: set[str], alias_map: dict[str, str], logger: Logger):
+                 all_source_buckets: set[str], alias_map: dict[str, str]):
 
+        self.__logger = None
         assert storage_client is not None, "storage_client is required"
-        assert logger is not None, "logger is required"
         assert buckets_map is not None, "buckets_map is required"
         assert all_source_buckets is not None, "all_source_buckets is required"
         assert alias_map is not None, "alias_map is required"
 
-        self.__logger = logger
         self.__storage_client = storage_client
         self.__buckets_map = buckets_map
         self.__source_bucket = source_bucket
@@ -51,6 +49,8 @@ class ThumbnailService:
         self.__alias_map = alias_map
 
     def make_thumbnail(self, bucket: str, file_name: str, etag: str | None) -> Response:
+        self.__logger = logger.bind(bcuket=bucket, file_name=file_name)
+
         thumbnail_stat = self.__storage_client.get_file_stat(bucket, file_name)
         if thumbnail_stat:
             self.__logger.debug("Found thumbnail file")
@@ -90,6 +90,7 @@ class ThumbnailService:
         return StreamingResponse(self.__stream_bytes(thumbnail.data), media_type=thumbnail.mime_type, headers=headers)
 
     def make_thumbnail_by_alis(self, source_bucket: str, file_name: str, alias: str, etag: str | None) -> Response:
+        self.__logger = logger.bind(bucket=source_bucket, file_name=file_name)
         if not source_bucket in self.__all_source_buckets:
             self.__logger.debug(f"Source bucket {source_bucket} was not found, return 404")
             return NOT_FOUND_RESPONSE

@@ -1,4 +1,6 @@
-from logging import Logger
+from venv import logger
+
+from loguru import logger
 
 from minio import S3Error
 
@@ -10,14 +12,15 @@ from app.images.storage_client import StorageClient
 class BucketsService:
     __app_settings: AppSettings
     __storage_client: StorageClient
-    __logger: Logger
 
-    def __init__(self, app_settings: AppSettings, storage_client: StorageClient, logger: Logger):
+    def __init__(self, app_settings: AppSettings, storage_client: StorageClient):
         self.__app_settings = app_settings
         self.__storage_client = storage_client
-        self.__logger = logger
+        self.__logger = None
 
     def __create_bucket(self, bucket_name: str, life_time_days: int) -> BucketStatus:
+        self.__logger = logger.bind(source="core")
+
         try:
             bucket_created = self.__storage_client.try_create_dir(bucket_name, life_time_days)
             if bucket_created:
@@ -32,6 +35,8 @@ class BucketsService:
             return BucketStatus.error
 
     def create_buckets(self) -> BucketsInfo:
+        self.__logger = logger.bind(source="core")
+
         self.__logger.debug(f"Creating {len(self.__app_settings.buckets)} buckets")
         result = BucketsInfo(thumbnail_buckets=dict(), source_buckets=dict())
 
