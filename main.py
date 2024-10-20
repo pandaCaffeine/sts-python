@@ -1,11 +1,12 @@
-import uvicorn
 import sys
 
-from app.main import web_app
+import uvicorn
+from loguru import logger
+
 from app.dependencies import get_app_settings
 from app.images.buckets_service import BucketsService
-from app.images.dependencies import get_s3_connection_settings, get_minio_client, get_storage_client
-from loguru import logger
+from app.images.dependencies import get_minio_client, get_storage_client
+from app.main import web_app
 
 
 def __configure_logger():
