@@ -5,7 +5,7 @@ from loguru import logger
 from minio import S3Error
 
 from app.config import AppSettings
-from app.images.models import BucketStatus, BucketsInfo
+from app.models import BucketStatus, BucketsInfo
 from app.images.storage_client import StorageClient
 
 
@@ -54,3 +54,5 @@ class BucketsService:
             source_bucket = bucket_settings.source_bucket
             if source_bucket and source_bucket != default_source_bucket:
                 result.source_buckets[source_bucket] = self.__create_bucket(bucket_settings.source_bucket, 0)
+
+        return result
