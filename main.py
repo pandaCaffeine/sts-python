@@ -27,7 +27,7 @@ def __start_app():
     minio = get_minio_client()
     storage_client = get_storage_client(minio)
 
-    buckets_service = BucketsService(app_settings, storage_client)
+    buckets_service = BucketsService(app_settings, storage_client, l)
     buckets_info = buckets_service.create_buckets()
 
     hc_service = get_health_check_service()

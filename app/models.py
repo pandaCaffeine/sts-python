@@ -12,3 +12,4 @@ class BucketStatus(str, enum.Enum):
 class BucketsInfo:
     thumbnail_buckets: dict[str, str]
     source_buckets: dict[str, str]
+    error: bool
