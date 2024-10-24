@@ -2,8 +2,8 @@ from typing import Annotated
 
 from fastapi import APIRouter
 from fastapi.params import Depends
-from starlette.responses import Response
 from starlette import status
+from starlette.responses import Response
 
 from app.healthcheck.dependencies import get_health_check_service
 from app.healthcheck.service import HealthCheckService
