@@ -35,6 +35,12 @@ services:
     restart: always
     depends_on:
       - minio
+    healthcheck:
+      test: curl -f http://sts/hc || exit 1
+      interval: 20s
+      timeout: 2s
+      retries: 3
+      start_period: 2s
     environment:
       SOURCE_BUCKET: images
       BUCKETS__THUMBNAIL-SMALL__WIDTH: 200
