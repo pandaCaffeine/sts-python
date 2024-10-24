@@ -12,15 +12,6 @@ from app.images.storage_client import StorageClient, S3StorageClient
 from app.images.thumbnail_service import ThumbnailService
 
 
-def get_s3_connection_settings() -> S3Settings:
-    return app_settings.s3
-
-
-def get_buckets_settings() -> dict[
-    str, BucketSettings]:
-    return app_settings.buckets
-
-
 @lru_cache
 def get_minio_client() -> Minio:
     s3_settings = app_settings.s3

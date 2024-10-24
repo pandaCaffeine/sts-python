@@ -74,13 +74,15 @@ class ThumbnailService:
             return NOT_FOUND_RESPONSE
 
         self.__logger.debug("Thumbnail file was created")
-        put_result = self.__storage_client.put_file(bucket, file_name, thumbnail.data, content_type=thumbnail.content_type)
+        put_result = self.__storage_client.put_file(bucket, file_name, thumbnail.data,
+                                                    content_type=thumbnail.content_type)
         self.__logger.debug("Thumbnail was uploaded to storage")
 
         headers = {HEADER_ETAG: put_result.etag, HEADER_LEN: str(put_result.size)}
-        return StreamingResponse(self.__stream_bytes(thumbnail.data), media_type=thumbnail.content_type, headers=headers)
+        return StreamingResponse(self.__stream_bytes(thumbnail.data), media_type=thumbnail.content_type,
+                                 headers=headers)
 
-    def make_thumbnail_by_alis(self, source_bucket: str, file_name: str, alias: str, etag: str | None) -> Response:
+    def make_thumbnail_by_alias(self, source_bucket: str, file_name: str, alias: str, etag: str | None) -> Response:
         if not source_bucket in self.__buckets_map.all_source_buckets:
             self.__logger.debug(f"Source bucket {source_bucket} was not found, return 404")
             return NOT_FOUND_RESPONSE
