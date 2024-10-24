@@ -5,8 +5,8 @@ from dataclasses import dataclass
 from io import BytesIO
 
 from minio import Minio, S3Error
-from minio.commonconfig import ENABLED
-from minio.lifecycleconfig import LifecycleConfig, Rule, Transition
+from minio.commonconfig import ENABLED, Filter
+from minio.lifecycleconfig import LifecycleConfig, Rule, Transition, Expiration
 from urllib3 import BaseHTTPResponse
 
 
@@ -164,7 +164,8 @@ class S3StorageClient(StorageClient):
         if life_time_days > 0:
             ttl_config = LifecycleConfig(
                 [
-                    Rule(ENABLED, rule_id="stsTtlRule", transition=Transition(days=life_time_days))
+                    Rule(ENABLED, rule_id="stsTtlRule", expiration=Expiration(days=life_time_days),
+                         rule_filter=Filter(prefix=""))
                 ]
             )
             self._minioClient.set_bucket_lifecycle(directory, ttl_config)
