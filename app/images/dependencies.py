@@ -6,7 +6,7 @@ from fastapi.params import Depends
 from loguru import logger
 from minio import Minio
 
-from app.config import S3Settings, BucketSettings, app_settings, BucketsMap
+from app.config import app_settings, BucketsMap
 from app.dependencies import get_buckets_map
 from app.images.storage_client import StorageClient, S3StorageClient
 from app.images.thumbnail_service import ThumbnailService
