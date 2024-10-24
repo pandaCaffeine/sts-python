@@ -34,7 +34,7 @@ def __start_app():
     hc_service.set_buckets_info(buckets_info)
 
     l.info("Starting web host")
-    uvicorn.run(web_app, host="0.0.0.0", port=8000)
+    uvicorn.run(web_app, host="0.0.0.0", port=80, proxy_headers=True)
 
 
 if __name__ == "__main__":
