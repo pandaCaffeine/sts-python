@@ -1,4 +1,4 @@
-FROM python:3.11-slim
+FROM python:3.11-alpine
 LABEL org.opencontainers.image.authors="adream74@gmail.com"
 
 WORKDIR /code
