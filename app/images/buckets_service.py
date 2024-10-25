@@ -27,8 +27,8 @@ class BucketsService:
             else:
                 self.__logger.info(f"Bucket {bucket_name} already exists, skip it")
                 return BucketStatus.exists
-        except (S3Error, Exception):
-            self.__logger.warning(f"Failed to create bucket {bucket_name}", exc_info=True)
+        except (S3Error, Exception) as e:
+            self.__logger.warning(f"Failed to create bucket {bucket_name}", exc_info=e)
             return BucketStatus.error
 
     @staticmethod
