@@ -1,3 +1,5 @@
+from dataclasses import dataclass
+
 from pydantic import BaseModel
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -10,6 +12,18 @@ class BucketSettings(BaseModel):
     height: int = 200
     """
     Thumbnail's height in the bucket, 200px by default
+    """
+    life_time_days: int = 30
+    """
+    How many days files in the bucket live, in days. 30 days by default. Set to zero, to make life time infinity.
+    """
+    source_bucket: str | None = None
+    """
+    Overrides default source bucket, can be None
+    """
+    alias: str | None = None
+    """
+    Optional alias for the bucket, can be used for alternative routes
     """
 
 
@@ -35,10 +49,24 @@ class AppSettings(BaseSettings):
     """ Collection of buckets with thumbnail settings """
     source_bucket: str = "images"
     """ Bucket with source images to process """
-    thumbnail_life_span: int = 30
-    """ How long thumbnails are alive, 30 days by default """
     model_config = SettingsConfigDict(env_file=".env", nested_model_default_partial_update=True,
-                                      env_nested_delimiter="__", extra='ignore')
+                                      env_nested_delimiter="__", extra='ignore', case_sensitive=False)
+    log_level: str = "INFO"
+    """
+    Logging level
+    """
+    log_fmt: str = "{time} | {level}: {extra} {message}"
+    """
+    Logging message format
+    """
+
+
+@dataclass(frozen=True)
+class BucketsMap:
+    source_bucket: str
+    buckets: dict[str, BucketSettings]
+    all_source_buckets: set[str]
+    alias_map: dict[str, str]
 
 
 app_settings: AppSettings = AppSettings()
