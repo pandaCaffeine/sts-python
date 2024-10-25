@@ -1,4 +1,5 @@
-[<img src="assets/logo.png">]
+<img src="assets/logo.png">
+
 # Simple Thumbnail Service (sts)
 The microservice serves thumbnail images in `minio` and does some ✨magic for you:
 * creates buckets on startup if they absent
@@ -104,13 +105,15 @@ In example above configuration of `source_bucket` is set to `images` and new thu
 ## Endpoints
 `sts` provides 4 endpoints:
 1. `/{bucket}/{filename}` - direct access to the thumbnail file, this endpoint is considered as main.
-2. `/{sourcebucket}/{filename}/{alis}` - an alternative endpoint that leads to thumbnail file by it's alias
+2. `/{sourcebucket}/{filename}/{alis}` - an alternative endpoint that leads to thumbnail file by its alias
 3. `/hc` - health check endpoint
 4. `/health` - alternative route for the `/hc` route
 
 ## Example
-Lets imagine that we have some web application on host `office.net`, and additional host `images.office.net` which serves image files for a client:
-[<img src="assets/example_scheme.png">]
+Let's imagine that we have some web application on host `office.net`, and additional host `images.office.net` which serves image files for a client:
+
+<img src="assets/example_scheme.png">
+
 In the given example `backend` serves all user requests (API) and manipulates `images` bucket (which stores original image files) while `sts` can read files from `images` bucket and creates thumbnails for the source images.
 
 ### Playground
