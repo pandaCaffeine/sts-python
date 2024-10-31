@@ -41,6 +41,23 @@ class ThumbnailService:
         self.__logger = logger
 
     def make_thumbnail(self, bucket: str, file_name: str, etag: str | None) -> Response:
+        if bucket == self.__buckets_map.source_bucket:
+            object_stream = self.__storage_client.open_stream(bucket, file_name)
+            if object_stream:
+                headers = {HEADER_ETAG: object_stream.etag, HEADER_LEN: object_stream.content_length}
+                return StreamingResponse(object_stream.read_to_end(), media_type=object_stream.content_type,
+                                         headers=headers)
+            return NOT_FOUND_RESPONSE
+
+        bucket_data = self.__buckets_map.buckets.get(bucket, None)
+        if not bucket_data:
+            self.__logger.debug(f"Configuration was not found for bucket {bucket}")
+            return NOT_FOUND_RESPONSE
+
+        source_file_stat = self.__storage_client.get_file_stat(bucket_data.source_bucket, file_name)
+        if not source_file_stat:
+            self.__logger.debug("Source file was not found, return 404")
+            return NOT_FOUND_RESPONSE
 
         thumbnail_stat = self.__storage_client.get_file_stat(bucket, file_name)
         if thumbnail_stat:
@@ -51,22 +68,12 @@ class ThumbnailService:
                 return Response(status_code=status.HTTP_304_NOT_MODIFIED, headers=headers)
 
             self.__logger.debug("Etag is different, return file from bucket")
-            r = self.__storage_client.open_stream(bucket, file_name)
+            object_stream = self.__storage_client.open_stream(bucket, file_name)
             headers = {HEADER_ETAG: thumbnail_stat.etag, HEADER_LEN: str(thumbnail_stat.size)}
-            return StreamingResponse(r.read_to_end(), media_type=thumbnail_stat.content_type, headers=headers)
+            return StreamingResponse(object_stream.read_to_end(), media_type=thumbnail_stat.content_type,
+                                     headers=headers)
 
-        bucket_data = self.__buckets_map.buckets.get(bucket, None)
-        if not bucket_data:
-            self.__logger.debug(f"Configuration was not found for bucket {bucket}")
-            return NOT_FOUND_RESPONSE
-
-        source_bucket = bucket_data.source_bucket or self.__buckets_map.source_bucket
-        source_file_stat = self.__storage_client.get_file_stat(source_bucket, file_name)
-        if not source_file_stat:
-            self.__logger.debug("Source file was not found, return 404")
-            return NOT_FOUND_RESPONSE
-
-        image_data = self.__storage_client.load_file(source_bucket, file_name)
+        image_data = self.__storage_client.load_file(bucket_data.source_bucket, file_name)
         self.__logger.debug("Source file was loaded into memory")
         thumbnail = resize_image(image_data, float(bucket_data.width), float(bucket_data.height))
         if thumbnail.error:

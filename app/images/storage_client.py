@@ -1,5 +1,5 @@
 import os
-from abc import ABC, abstractmethod
+from abc import ABC, abstractmethod, abstractproperty
 from collections.abc import Iterable
 from dataclasses import dataclass
 from io import BytesIO
@@ -49,6 +49,21 @@ class StorageResponse(ABC):
 
     @abstractmethod
     def close(self):
+        pass
+
+    @property
+    @abstractmethod
+    def content_length(self) -> str:
+        pass
+
+    @property
+    @abstractmethod
+    def content_type(self) -> str:
+        pass
+
+    @property
+    @abstractmethod
+    def etag(self) -> str:
         pass
 
 
@@ -114,9 +129,15 @@ class StorageClient(ABC):
 
 class _StorageResponse(StorageResponse):
     __http_response: BaseHTTPResponse
+    __content_length: str
+    __content_type: str
+    __etag: str
 
     def __init__(self, http_response: BaseHTTPResponse):
         self.__http_response = http_response
+        self.__content_length = self.__http_response.headers['content-length']
+        self.__content_type = self.__http_response.headers['content-type']
+        self.__etag = self.__http_response.headers['etag']
 
     def read_to_end(self) -> Iterable[bytes]:
         try:
@@ -129,6 +150,18 @@ class _StorageResponse(StorageResponse):
     def close(self):
         self.__http_response.close()
         self.__http_response.release_conn()
+
+    @property
+    def content_length(self) -> str:
+        return self.__content_length
+
+    @property
+    def content_type(self) -> str:
+        return self.__content_type
+
+    @property
+    def etag(self) -> str:
+        return self.__etag
 
 
 class S3StorageClient(StorageClient):
