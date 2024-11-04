@@ -1,12 +1,12 @@
 import os
-from abc import ABC, abstractmethod, abstractproperty
+from abc import ABC, abstractmethod
 from collections.abc import Iterable
 from dataclasses import dataclass
 from io import BytesIO
 
 from minio import Minio, S3Error
 from minio.commonconfig import ENABLED, Filter
-from minio.lifecycleconfig import LifecycleConfig, Rule, Transition, Expiration
+from minio.lifecycleconfig import LifecycleConfig, Rule, Expiration
 from urllib3 import BaseHTTPResponse
 
 
@@ -17,7 +17,7 @@ class StorageFileItem:
     """
     directory: str
     """ File location """
-    name: str
+    file_name: str
     """ File name """
     size: int
     """ File size """
@@ -25,21 +25,24 @@ class StorageFileItem:
     """ Content type """
     etag: str
     """ File's Etag """
+    metadata: dict[str, str]
+    """ File's metadata """
 
-    def __init__(self, directory: str, name: str, size: int, content_type: str, etag: str):
+    def __init__(self, directory: str, file_name: str, size: int, content_type: str, etag: str, metadata: dict[str, str]):
         """
         Constructor
         :param directory: Directory
-        :param name: File name
+        :param file_name: File name
         :param size: File size in bytes
         :param content_type: Content type, MIME type
         :param etag: File's Etag
         """
         self.directory = directory
-        self.name = name
+        self.file_name = file_name
         self.size = size
         self.content_type = content_type
         self.etag = etag
+        self.metadata = metadata
 
 
 class StorageResponse(ABC):
@@ -104,7 +107,7 @@ class StorageClient(ABC):
 
     @abstractmethod
     def put_file(self, directory: str, file_name: str, content: BytesIO, content_type: str,
-                 reset_content: bool = True) -> StorageFileItem:
+                 reset_content: bool = True, metadata: dict[str, str] | None = None) -> StorageFileItem:
         """
         Uploads files to storage
         :param directory: Destination directory
@@ -112,6 +115,7 @@ class StorageClient(ABC):
         :param content: Content
         :param content_type: Destination content_type
         :param reset_content: Set true to reset source content to the beginning
+        :param metadata: File's optional metadata
         :return: Upload bytes count - size of the content
         """
         pass
@@ -207,13 +211,14 @@ class S3StorageClient(StorageClient):
     def get_file_stat(self, directory: str, file_name: str) -> StorageFileItem | None:
         try:
             object_stat = self._minioClient.stat_object(bucket_name=directory, object_name=file_name)
-            return StorageFileItem(directory=directory, name=file_name, size=object_stat.size,
-                                   content_type=object_stat.content_type, etag=object_stat.etag)
+            return StorageFileItem(directory=directory, file_name=file_name, size=object_stat.size,
+                                   content_type=object_stat.content_type, etag=object_stat.etag,
+                                   metadata=dict(object_stat.metadata))
         except S3Error:
             return None
 
     def put_file(self, directory: str, file_name: str, content: BytesIO, content_type: str,
-                 reset_content: bool = True) -> StorageFileItem:
+                 reset_content: bool = True, metadata: dict[str, str] | None = None) -> StorageFileItem:
         assert content is not None, "Content is required"
 
         # read content length
@@ -222,11 +227,11 @@ class S3StorageClient(StorageClient):
 
         # seek to the start to put file
         content.seek(0, os.SEEK_SET)
-        result = self._minioClient.put_object(directory, file_name, content, content_length, content_type=content_type)
+        result = self._minioClient.put_object(directory, file_name, content, content_length, content_type=content_type, metadata=metadata)
         if reset_content:
             content.seek(0, os.SEEK_SET)
-        return StorageFileItem(directory=directory, name=result.object_name, content_type=content_type,
-                               size=content_length, etag=result.etag)
+        return StorageFileItem(directory=directory, file_name=result.object_name, content_type=content_type,
+                               size=content_length, etag=result.etag, metadata=metadata)
 
     def load_file(self, directory: str, file_name: str) -> BytesIO | None:
         result = BytesIO()
