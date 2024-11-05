@@ -28,7 +28,8 @@ class StorageFileItem:
     metadata: dict[str, str]
     """ File's metadata """
 
-    def __init__(self, directory: str, file_name: str, size: int, content_type: str, etag: str, metadata: dict[str, str]):
+    def __init__(self, directory: str, file_name: str, size: int, content_type: str, etag: str,
+                 metadata: dict[str, str]):
         """
         Constructor
         :param directory: Directory
@@ -227,7 +228,8 @@ class S3StorageClient(StorageClient):
 
         # seek to the start to put file
         content.seek(0, os.SEEK_SET)
-        result = self._minioClient.put_object(directory, file_name, content, content_length, content_type=content_type, metadata=metadata)
+        result = self._minioClient.put_object(directory, file_name, content, content_length, content_type=content_type,
+                                              metadata=metadata)
         if reset_content:
             content.seek(0, os.SEEK_SET)
         return StorageFileItem(directory=directory, file_name=result.object_name, content_type=content_type,
