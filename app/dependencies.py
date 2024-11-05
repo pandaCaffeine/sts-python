@@ -17,6 +17,7 @@ def get_buckets_map() -> BucketsMap:
     for bucket_name, bucket_cfg in app_settings.buckets.items():
         if bucket_cfg.alias is None:
             continue
+        bucket_cfg.source_bucket = bucket_cfg.source_bucket or app_settings.source_bucket
         alias_map[bucket_cfg.alias] = bucket_name
 
     return BucketsMap(alias_map=alias_map, buckets=app_settings.buckets, source_bucket=app_settings.source_bucket,

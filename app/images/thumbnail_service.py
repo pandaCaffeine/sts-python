@@ -58,10 +58,11 @@ class ThumbnailService:
             return self._get_file_response(source_file_stat, etag)
 
         thumbnail_stat = self.__storage_client.get_file_stat(bucket, file_name)
-        parent_etag = thumbnail_stat.metadata.get(KEY_PARENT_ETAG, None)
-        if thumbnail_stat and parent_etag == source_file_stat.etag:
-            self.__logger.debug("Found thumbnail file")
-            return self._get_file_response(thumbnail_stat, etag)
+        if thumbnail_stat:
+            parent_etag = thumbnail_stat.metadata.get(KEY_PARENT_ETAG, None)
+            if parent_etag == source_file_stat.etag:
+                self.__logger.debug("Found thumbnail file")
+                return self._get_file_response(thumbnail_stat, etag)
 
         image_data = self.__storage_client.load_file(bucket_data.source_bucket, file_name)
         self.__logger.debug("Source file was loaded into memory")
@@ -107,5 +108,5 @@ class ThumbnailService:
         if not object_stream:
             return NOT_FOUND_RESPONSE
 
-        headers = {HEADER_ETAG: object_stream.etag, HEADER_LEN: object_stream.etag}
+        headers = {HEADER_ETAG: object_stream.etag, HEADER_LEN: object_stream.content_length}
         return StreamingResponse(object_stream.read_to_end(), media_type=object_stream.content_type, headers=headers)
