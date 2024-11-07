@@ -78,7 +78,7 @@ class ThumbnailService:
         self.__logger.debug("Thumbnail was uploaded to storage")
 
         headers = {HEADER_ETAG: put_result.etag, HEADER_LEN: str(put_result.size)}
-        return StreamingResponse(self.__stream_bytes(thumbnail.data), media_type=thumbnail.content_type,
+        return StreamingResponse(thumbnail.data, media_type=thumbnail.content_type,
                                  headers=headers)
 
     def make_thumbnail_by_alias(self, source_bucket: str, file_name: str, alias: str, etag: str | None) -> Response:
@@ -91,9 +91,7 @@ class ThumbnailService:
 
     def _get_bucket_data(self, bucket: str) -> BucketSettings:
         if bucket == self.__buckets_map.source_bucket:
-            result = BucketSettings()
-            result.source_bucket = bucket
-            return result
+            return self.__buckets_map.buckets[bucket]
 
         return self.__buckets_map.buckets.get(bucket, None)
 
