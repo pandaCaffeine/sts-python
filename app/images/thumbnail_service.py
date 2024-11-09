@@ -47,8 +47,7 @@ class ThumbnailService:
 
         thumbnail_stat = self._storage_client.get_file_stat(bucket, file_name)
         if thumbnail_stat:
-            parent_etag = thumbnail_stat.metadata.get(KEY_PARENT_ETAG, None)
-            if parent_etag == source_file_stat.etag:
+            if thumbnail_stat.parent_etag == source_file_stat.etag:
                 self._logger.debug("Found thumbnail file")
                 return self._get_file_response(thumbnail_stat, etag)
 
@@ -62,7 +61,7 @@ class ThumbnailService:
         self._logger.debug("Thumbnail file was created")
         put_result = self._storage_client.put_file(bucket, file_name, thumbnail.data,
                                                    content_type=thumbnail.content_type,
-                                                   metadata={KEY_PARENT_ETAG: source_file_stat.etag})
+                                                   parent_etag=source_file_stat.etag)
         self._logger.debug("Thumbnail was uploaded to storage")
 
         headers = {HEADER_ETAG: put_result.etag, HEADER_LEN: str(put_result.size)}
