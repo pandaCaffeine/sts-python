@@ -54,7 +54,7 @@ class ThumbnailService:
 
         image_data = self._storage_client.load_file(bucket_settings.source_bucket, file_name)
         self._logger.debug("Source file was loaded into memory")
-        thumbnail = resize_image(image_data, float(bucket_settings.width), float(bucket_settings.height))
+        thumbnail = resize_image(image_data, bucket_settings.width, bucket_settings.height)
         if thumbnail.error:
             self._logger.warning(f"Failed to create thumbnail: {thumbnail.error}")
             return NOT_FOUND_RESPONSE

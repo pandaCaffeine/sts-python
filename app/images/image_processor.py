@@ -6,7 +6,7 @@ from PIL import Image
 from app.images.models import ImageData
 
 
-def resize_image(data: BytesIO, width: float, height: float) -> ImageData:
+def resize_image(data: BytesIO, width: int, height: int) -> ImageData:
     assert data is not None, "data cannot be None"
     assert width > 0, "width must be greater than 0"
     assert height > 0, "height must be greater than 0"
@@ -16,7 +16,8 @@ def resize_image(data: BytesIO, width: float, height: float) -> ImageData:
             with Image.open(data) as im:
                 mime_type = im.get_format_mimetype()
 
-                im.thumbnail((width, height))
+                new_size: tuple[float, float] = (float(width), float(height))
+                im.thumbnail(new_size)
                 result = BytesIO()
                 im.save(result, im.format, optimize=True)
                 return ImageData(content_type=mime_type, error=None, data=result)
