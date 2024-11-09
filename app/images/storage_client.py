@@ -48,6 +48,14 @@ class StorageFileItem:
 
 class StorageResponse(ABC):
     @abstractmethod
+    def __enter__(self) -> Iterable[bytes]:
+        pass
+
+    @abstractmethod
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        pass
+
+    @abstractmethod
     def read_to_end(self) -> Iterable[bytes]:
         pass
 
@@ -146,19 +154,24 @@ class _StorageResponse(StorageResponse):
         self._content_type = self._http_response.headers['content-type']
         self._etag = self._http_response.headers['etag']
 
+    def __enter__(self) -> Iterable[bytes]:
+        return self._http_response.stream()
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.close()
+
     def read_to_end(self) -> Iterable[bytes]:
-        try:
-            stream = self._http_response.stream()
-            for chunk in stream:
-                yield chunk
-        finally:
-            self.close()
+        with self as stream:
+            yield from stream
 
     def close(self):
-        if self._http_response:
-            self._http_response.close()
-            self._http_response.release_conn()
-            self._http_response = None
+        if not self._http_response:
+            return
+
+        http_response = self._http_response
+        self._http_response = None
+        http_response.close()
+        http_response.release_conn()
 
     @property
     def content_length(self) -> str:
