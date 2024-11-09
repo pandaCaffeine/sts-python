@@ -11,6 +11,7 @@ class BucketsService:
     _app_settings: AppSettings
     _storage_client: StorageClient
     _logger: Logger
+    __slots__ = ['_app_settings', '_storage_client', '_logger']
 
     def __init__(self, app_settings: AppSettings, storage_client: StorageClient, l: Logger):
         self._app_settings = app_settings

@@ -8,7 +8,7 @@ class BucketStatus(str, enum.Enum):
     error = "error"
 
 
-@dataclass
+@dataclass(slots=True)
 class BucketsInfo:
     thumbnail_buckets: dict[str, str]
     source_buckets: dict[str, str]

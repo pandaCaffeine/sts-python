@@ -13,7 +13,7 @@ HEADER_LEN = "Content-Length"
 NOT_FOUND_RESPONSE: JSONResponse = JSONResponse(status_code=status.HTTP_404_NOT_FOUND,
                                                 content={"detail": "File not found"})
 
-KEY_PARENT_ETAG = "x-amz-meta-parent-etag"
+__all__ = ['ThumbnailService']
 
 
 class ThumbnailService:
