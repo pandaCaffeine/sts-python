@@ -133,40 +133,44 @@ class StorageClient(ABC):
 
 
 class _StorageResponse(StorageResponse):
-    __http_response: BaseHTTPResponse
-    __content_length: str
-    __content_type: str
-    __etag: str
+    _http_response: BaseHTTPResponse | None = None
+    _content_length: str
+    _content_type: str
+    _etag: str
 
     def __init__(self, http_response: BaseHTTPResponse):
-        self.__http_response = http_response
-        self.__content_length = self.__http_response.headers['content-length']
-        self.__content_type = self.__http_response.headers['content-type']
-        self.__etag = self.__http_response.headers['etag']
+        assert http_response, "http_response is required"
+
+        self._http_response = http_response
+        self._content_length = self._http_response.headers['content-length']
+        self._content_type = self._http_response.headers['content-type']
+        self._etag = self._http_response.headers['etag']
 
     def read_to_end(self) -> Iterable[bytes]:
         try:
-            stream = self.__http_response.stream()
+            stream = self._http_response.stream()
             for chunk in stream:
                 yield chunk
         finally:
             self.close()
 
     def close(self):
-        self.__http_response.close()
-        self.__http_response.release_conn()
+        if self._http_response:
+            self._http_response.close()
+            self._http_response.release_conn()
+            self._http_response = None
 
     @property
     def content_length(self) -> str:
-        return self.__content_length
+        return self._content_length
 
     @property
     def content_type(self) -> str:
-        return self.__content_type
+        return self._content_type
 
     @property
     def etag(self) -> str:
-        return self.__etag
+        return self._etag
 
 
 class S3StorageClient(StorageClient):
