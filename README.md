@@ -28,14 +28,16 @@ Use docker image `pandacaffeine/sts:1.0.0` in your docker environment or docker-
 
 ## Algorithm
 
-1. Query object stat from `minio` for the requested thumbnail file
-2. If thumbnail file was found in `minio`:
-    1. Check if HTTP request has `If-None-Match` header:
-        1. If header is present:
-            1. If header's value is equals to file's stats - return `304` response, exit
-    2. Return thumbnail file from `minio` with `Etag` header, exit
-3. Check if original file is present in `minio`:
-    1. If file was not found - return `404` response, exit
+1. Query object stat from `minio` for the source file:
+   1. If file was not found - return `404` response, exit
+2. Query object stat from `minio` for the requested thumbnail file
+3. If thumbnail file was found in `minio`:
+   1. Check if `parent-etag` of the thumbnail file equals source file `etag`:
+      1. If etags do not equal - go to step `4`
+   2. Check if HTTP request has `If-None-Match` header:
+       1. If header is present:
+           1. If header's value is equals to file's stats - return `304` response, exit
+   3. Return thumbnail file from `minio` with `Etag` header, exit
 4. Try to create thumbnail file
 5. Save created thumbnail file into `minio`
 6. Return created thumbnail file
