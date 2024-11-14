@@ -61,7 +61,7 @@ class AppSettings(BaseSettings):
     """
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, slots=True)
 class BucketsMap:
     source_bucket: str
     buckets: dict[str, BucketSettings]
