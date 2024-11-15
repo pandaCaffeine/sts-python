@@ -42,6 +42,12 @@ Use docker image `pandacaffeine/sts:1.1.0` in your docker environment or docker-
 `sts` uses `pydantic-settings` to read configuration from `ENV` variables. Symbols `__` is used as nested objects
 delimiter.
 
+Alternative way to configure service:
+1. `config.json` file
+2. `.env` file
+
+Configuration file must be placed in the working dir 
+
 ### Scheme for example
 
 ```json
