@@ -14,11 +14,11 @@ images_router = APIRouter()
 def get_thumbnail(bucket: str, file_name: str,
                   thumbnail_service: Annotated[ThumbnailService, Depends(get_thumbnail_service)],
                   etag: Annotated[str | None, Header(alias="If-None-Match")] = None) -> Response:
-    return thumbnail_service.make_thumbnail(bucket, file_name, etag)
+    return thumbnail_service.get_thumbnail(bucket, file_name, etag)
 
 
 @images_router.get("/{bucket}/{file_name}/{alias}")
 def get_thumbnail_by_alias(bucket: str, file_name: str, alias: str,
                            thumbnail_service: Annotated[ThumbnailService, Depends(get_thumbnail_service)],
                            etag: Annotated[str | None, Header(alias="If-None-Match")] = None) -> Response:
-    return thumbnail_service.make_thumbnail_by_alias(bucket, file_name, alias, etag)
+    return thumbnail_service.get_thumbnail_by_alias(bucket, file_name, alias, etag)

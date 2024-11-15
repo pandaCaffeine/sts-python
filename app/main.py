@@ -8,6 +8,7 @@ from app.healthcheck.dependencies import get_health_check_service
 from app.images.buckets_service import BucketsService
 from app.images.dependencies import get_minio_client, get_storage_client
 from app import web_app
+from app import __version__
 
 
 def __configure_logger():
@@ -38,4 +39,6 @@ def __start_app():
 
 
 if __name__ == "__main__":
+    print(f"sts v{__version__}")
+
     __start_app()

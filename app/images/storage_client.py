@@ -6,18 +6,20 @@ from io import BytesIO
 
 from minio import Minio, S3Error
 from minio.commonconfig import ENABLED, Filter
-from minio.lifecycleconfig import LifecycleConfig, Rule, Transition, Expiration
+from minio.lifecycleconfig import LifecycleConfig, Rule, Expiration
 from urllib3 import BaseHTTPResponse
 
+KEY_PARENT_ETAG: str = "x-amz-meta-parent-etag"
 
-@dataclass
+
+@dataclass(frozen=True, slots=True)
 class StorageFileItem:
     """
     Contains file's information
     """
     directory: str
     """ File location """
-    name: str
+    file_name: str
     """ File name """
     size: int
     """ File size """
@@ -25,30 +27,40 @@ class StorageFileItem:
     """ Content type """
     etag: str
     """ File's Etag """
-
-    def __init__(self, directory: str, name: str, size: int, content_type: str, etag: str):
-        """
-        Constructor
-        :param directory: Directory
-        :param name: File name
-        :param size: File size in bytes
-        :param content_type: Content type, MIME type
-        :param etag: File's Etag
-        """
-        self.directory = directory
-        self.name = name
-        self.size = size
-        self.content_type = content_type
-        self.etag = etag
+    parent_etag: str | None = None
+    """ File's metadata """
 
 
 class StorageResponse(ABC):
+    @abstractmethod
+    def __enter__(self) -> Iterable[bytes]:
+        pass
+
+    @abstractmethod
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        pass
+
     @abstractmethod
     def read_to_end(self) -> Iterable[bytes]:
         pass
 
     @abstractmethod
     def close(self):
+        pass
+
+    @property
+    @abstractmethod
+    def content_length(self) -> str:
+        pass
+
+    @property
+    @abstractmethod
+    def content_type(self) -> str:
+        pass
+
+    @property
+    @abstractmethod
+    def etag(self) -> str:
         pass
 
 
@@ -89,7 +101,7 @@ class StorageClient(ABC):
 
     @abstractmethod
     def put_file(self, directory: str, file_name: str, content: BytesIO, content_type: str,
-                 reset_content: bool = True) -> StorageFileItem:
+                 reset_content: bool = True, parent_etag: str | None = None) -> StorageFileItem:
         """
         Uploads files to storage
         :param directory: Destination directory
@@ -97,6 +109,7 @@ class StorageClient(ABC):
         :param content: Content
         :param content_type: Destination content_type
         :param reset_content: Set true to reset source content to the beginning
+        :param parent_etag: File's optional parent etag
         :return: Upload bytes count - size of the content
         """
         pass
@@ -113,36 +126,66 @@ class StorageClient(ABC):
 
 
 class _StorageResponse(StorageResponse):
-    __http_response: BaseHTTPResponse
+    _http_response: BaseHTTPResponse | None
+    _content_length: str
+    _content_type: str
+    _etag: str
+    __slots__ = ['_content_length', '_http_response', '_content_type', '_etag']
 
     def __init__(self, http_response: BaseHTTPResponse):
-        self.__http_response = http_response
+        assert http_response, "http_response is required"
+
+        self._http_response = http_response
+        self._content_length = self._http_response.headers['content-length']
+        self._content_type = self._http_response.headers['content-type']
+        self._etag = self._http_response.headers['etag']
+        if self._etag:
+            self._etag = self._etag.replace('"', '')
+
+    def __enter__(self) -> Iterable[bytes]:
+        return self._http_response.stream()
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.close()
 
     def read_to_end(self) -> Iterable[bytes]:
-        try:
-            stream = self.__http_response.stream()
-            for chunk in stream:
-                yield chunk
-        finally:
-            self.close()
+        with self as stream:
+            yield from stream
 
     def close(self):
-        self.__http_response.close()
-        self.__http_response.release_conn()
+        if not self._http_response:
+            return
+
+        http_response = self._http_response
+        self._http_response = None
+        http_response.close()
+        http_response.release_conn()
+
+    @property
+    def content_length(self) -> str:
+        return self._content_length
+
+    @property
+    def content_type(self) -> str:
+        return self._content_type
+
+    @property
+    def etag(self) -> str:
+        return self._etag
 
 
 class S3StorageClient(StorageClient):
-    _minioClient: Minio
+    _minio_client: Minio
 
     def __init__(self, minio: Minio):
         assert minio is not None, "Minio client is required"
 
-        self._minioClient = minio
+        self._minio_client = minio
 
     def open_stream(self, directory: str, file_name: str) -> StorageResponse | None:
         response: BaseHTTPResponse | None = None
         try:
-            response = self._minioClient.get_object(directory, file_name)
+            response = self._minio_client.get_object(directory, file_name)
             return _StorageResponse(response)
         except S3Error:
             if response:
@@ -156,10 +199,10 @@ class S3StorageClient(StorageClient):
             raise e
 
     def try_create_dir(self, directory: str, life_time_days: int) -> bool:
-        if self._minioClient.bucket_exists(directory):
+        if self._minio_client.bucket_exists(directory):
             return False
 
-        self._minioClient.make_bucket(directory)
+        self._minio_client.make_bucket(directory)
 
         if life_time_days > 0:
             ttl_config = LifecycleConfig(
@@ -168,19 +211,21 @@ class S3StorageClient(StorageClient):
                          rule_filter=Filter(prefix=""))
                 ]
             )
-            self._minioClient.set_bucket_lifecycle(directory, ttl_config)
+            self._minio_client.set_bucket_lifecycle(directory, ttl_config)
         return True
 
     def get_file_stat(self, directory: str, file_name: str) -> StorageFileItem | None:
         try:
-            object_stat = self._minioClient.stat_object(bucket_name=directory, object_name=file_name)
-            return StorageFileItem(directory=directory, name=file_name, size=object_stat.size,
-                                   content_type=object_stat.content_type, etag=object_stat.etag)
+            object_stat = self._minio_client.stat_object(bucket_name=directory, object_name=file_name)
+            parent_etag = object_stat.metadata.get(KEY_PARENT_ETAG, None)
+            return StorageFileItem(directory=directory, file_name=file_name, size=object_stat.size,
+                                   content_type=object_stat.content_type, etag=object_stat.etag,
+                                   parent_etag=parent_etag)
         except S3Error:
             return None
 
     def put_file(self, directory: str, file_name: str, content: BytesIO, content_type: str,
-                 reset_content: bool = True) -> StorageFileItem:
+                 reset_content: bool = True, parent_etag: str | None = None) -> StorageFileItem:
         assert content is not None, "Content is required"
 
         # read content length
@@ -189,17 +234,22 @@ class S3StorageClient(StorageClient):
 
         # seek to the start to put file
         content.seek(0, os.SEEK_SET)
-        result = self._minioClient.put_object(directory, file_name, content, content_length, content_type=content_type)
+
+        metadata: dict[str, str] | None = None
+        if parent_etag:
+            metadata = {KEY_PARENT_ETAG: parent_etag}
+        result = self._minio_client.put_object(directory, file_name, content, content_length, content_type=content_type,
+                                               metadata=metadata)
         if reset_content:
             content.seek(0, os.SEEK_SET)
-        return StorageFileItem(directory=directory, name=result.object_name, content_type=content_type,
-                               size=content_length, etag=result.etag)
+        return StorageFileItem(directory=directory, file_name=result.object_name, content_type=content_type,
+                               size=content_length, etag=result.etag, parent_etag=parent_etag)
 
     def load_file(self, directory: str, file_name: str) -> BytesIO | None:
         result = BytesIO()
         http_response: BaseHTTPResponse | None = None
         try:
-            http_response = self._minioClient.get_object(directory, file_name)
+            http_response = self._minio_client.get_object(directory, file_name)
             result = self._load_response_to_memory(http_response)
             return result
         except S3Error:
