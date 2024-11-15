@@ -1,0 +1,10 @@
+{
+  "source_bucket": "images2",
+  "buckets": {
+    "thumbnail-small": {
+      "width": 300,
+      "height": 300,
+      "alias": "small"
+    }
+  }
+}
