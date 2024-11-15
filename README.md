@@ -157,8 +157,8 @@ The repository contains an example nginx configuration file and a docker-compose
 
 There are no specific deadlines at this time, but we have some ideas for future development:
 
-1. version 1.1: source file first - return 404 if source file was deleted, recreate thumbnail file if source file was
+1. ✅ version 1.1: source file first - return 404 if source file was deleted, recreate thumbnail file if source file was
    changed
-2. version 1.2: file configuration for thumbnails - ability to choose thumbnails file format and some options like
+2. 🔳 version 1.2: file configuration for thumbnails - ability to choose thumbnails file format and some options like
    quality
-3. version 2.0: refactoring, fixes, code cleanup
+3. 🔳 version 2.0: refactoring, fixes, code cleanup
