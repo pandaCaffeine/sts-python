@@ -1,3 +1,7 @@
+__author__ = "Nikita Sakhno"
+__license__ = "MIT License"
+__version__ = "1.1.0"
+
 from fastapi import FastAPI
 
 from app.healthcheck.routes import hc_route

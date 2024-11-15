@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 
 from pydantic import BaseModel
-from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic_settings import BaseSettings, SettingsConfigDict, PydanticBaseSettingsSource, JsonConfigSettingsSource
 
 
 class BucketSettings(BaseModel):
@@ -45,12 +45,13 @@ class S3Settings(BaseModel):
 class AppSettings(BaseSettings):
     s3: S3Settings = S3Settings()
     """ S3 or minio connection parameters """
-    buckets: dict[str, BucketSettings] = dict()
+    buckets: dict[str, BucketSettings] = ()
     """ Collection of buckets with thumbnail settings """
     source_bucket: str = "images"
     """ Bucket with source images to process """
     model_config = SettingsConfigDict(env_file=".env", nested_model_default_partial_update=True,
-                                      env_nested_delimiter="__", extra='ignore', case_sensitive=False)
+                                      env_nested_delimiter="__", extra='ignore', case_sensitive=False,
+                                      json_file="config.json")
     log_level: str = "INFO"
     """
     Logging level
@@ -59,6 +60,18 @@ class AppSettings(BaseSettings):
     """
     Logging message format
     """
+
+    @classmethod
+    def settings_customise_sources(
+            cls,
+            settings_cls: type[BaseSettings],
+            init_settings: PydanticBaseSettingsSource,
+            env_settings: PydanticBaseSettingsSource,
+            dotenv_settings: PydanticBaseSettingsSource,
+            file_secret_settings: PydanticBaseSettingsSource,
+    ) -> tuple[PydanticBaseSettingsSource, ...]:
+        return init_settings, env_settings, JsonConfigSettingsSource(
+            settings_cls), dotenv_settings, file_secret_settings
 
 
 @dataclass(frozen=True, slots=True)
