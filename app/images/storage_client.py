@@ -176,7 +176,6 @@ class _StorageResponse(StorageResponse):
 
 class S3StorageClient(StorageClient):
     _minio_client: Minio
-    __slots__ = ['_minio_client']
 
     def __init__(self, minio: Minio):
         assert minio is not None, "Minio client is required"

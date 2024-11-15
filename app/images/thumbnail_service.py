@@ -30,7 +30,7 @@ class ThumbnailService:
         self._buckets_map = buckets_map
         self._logger = logger
 
-    def make_thumbnail(self, bucket: str, file_name: str, etag: str | None) -> Response:
+    def get_thumbnail(self, bucket: str, file_name: str, etag: str | None) -> Response:
         bucket_settings = self._get_bucket_settings(bucket)
         # if bucket was not configured: the given bucket is not a source bucket and not a thumbnail bucket
         if not bucket_settings:
@@ -68,13 +68,13 @@ class ThumbnailService:
         return StreamingResponse(thumbnail.data, media_type=thumbnail.content_type,
                                  headers=headers)
 
-    def make_thumbnail_by_alias(self, source_bucket: str, file_name: str, alias: str, etag: str | None) -> Response:
+    def get_thumbnail_by_alias(self, source_bucket: str, file_name: str, alias: str, etag: str | None) -> Response:
         if not source_bucket in self._buckets_map.all_source_buckets:
             self._logger.debug(f"Source bucket {source_bucket} was not found, return 404")
             return NOT_FOUND_RESPONSE
 
         bucket = self._buckets_map.alias_map.get(alias, source_bucket)
-        return self.make_thumbnail(bucket, file_name, etag)
+        return self.get_thumbnail(bucket, file_name, etag)
 
     def _get_bucket_settings(self, bucket: str) -> BucketSettings:
         if bucket == self._buckets_map.source_bucket:
