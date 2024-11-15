@@ -24,23 +24,18 @@ The microservice serves thumbnail images in `minio` and does some ✨magic for y
 
 ## Installation
 
-Use docker image `pandacaffeine/sts:1.0.0` in your docker environment or docker-compose.
+Use docker image `pandacaffeine/sts:1.1.0` in your docker environment or docker-compose.
 
 ## Algorithm
-
-1. Query object stat from `minio` for the source file:
-   1. If file was not found - return `404` response, exit
-2. Query object stat from `minio` for the requested thumbnail file
-3. If thumbnail file was found in `minio`:
-   1. Check if `parent-etag` of the thumbnail file equals source file `etag`:
-      1. If etags do not equal - go to step `4`
-   2. Check if HTTP request has `If-None-Match` header:
-       1. If header is present:
-           1. If header's value is equals to file's stats - return `304` response, exit
-   3. Return thumbnail file from `minio` with `Etag` header, exit
-4. Try to create thumbnail file
-5. Save created thumbnail file into `minio`
-6. Return created thumbnail file
+1. Query the object stat from minio for the source file. If the file is not found, return a 404 response.
+2. Query the object stat for the thumbnail file requested.
+3. Check if the thumbnail file exists in minio. If it does:
+   - Check if the parent-etag of the thumbnail is equal to the source file's etag. If not, go to step 4.
+   - If the HTTP request has an If-None-Match header, check if its value is equal to the file's stats. If so, return a 304 response and exit.
+4. Return the thumbnail file with an Etag header from minio and exit.
+5. Try to generate a thumbnail file.
+6. Save the generated thumbnail into minio.
+7. Return the created thumbnail.
 
 ## Configuration
 
@@ -130,7 +125,7 @@ configuration:
 `sts` provides 4 endpoints:
 
 1. `/{bucket}/{filename}` - direct access to the thumbnail file, this endpoint is considered as main.
-2. `/{sourcebucket}/{filename}/{alis}` - an alternative endpoint that leads to thumbnail file by its alias
+2. `/{sourcebucket}/{filename}/{alias}` - an alternative endpoint that leads to thumbnail file by its alias
 3. `/hc` - health check endpoint
 4. `/health` - alternative route for the `/hc` route
 
