@@ -46,7 +46,7 @@ Alternative way to configure service:
 1. `config.json` file
 2. `.env` file
 
-Configuration file must be placed in the working dir 
+Configuration files must be places inside image in folder `/code/`.
 
 ### Scheme for example
 
