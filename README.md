@@ -165,6 +165,7 @@ There are no specific deadlines at this time, but we have some ideas for future 
 
 1. ✅ version 1.1: source file first - return 404 if source file was deleted, recreate thumbnail file if source file was
    changed
-2. 🔳 version 1.2: file configuration for thumbnails - ability to choose thumbnails file format and some options like
+2. 🔳 version 1.2: make configuration simpler
+3. 🔳 version 1.3: file configuration for thumbnails - ability to choose thumbnails file format and some options like
    quality
-3. 🔳 version 2.0: refactoring, fixes, code cleanup
+4. 🔳 version 2.0: refactoring, fixes, code cleanup
