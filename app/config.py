@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 
-from pydantic import BaseModel
+from pydantic import BaseModel, HttpUrl
 from pydantic_settings import BaseSettings, SettingsConfigDict, PydanticBaseSettingsSource, JsonConfigSettingsSource
 
 
@@ -42,24 +42,27 @@ class S3Settings(BaseModel):
     """ Set True to trust secure certificate and do not validate it, True by default """
 
 
-class AppSettings(BaseSettings):
-    s3: S3Settings = S3Settings()
+class AppBaseSettings(BaseSettings):
+    """ Application settings """
+
+    s3: S3Settings | HttpUrl = S3Settings()
     """ S3 or minio connection parameters """
+
     buckets: dict[str, BucketSettings] = ()
     """ Collection of buckets with thumbnail settings """
-    source_bucket: str = "images"
+
+    source_bucket: str | None = "images"
     """ Bucket with source images to process """
+
+    log_level: str = "INFO"
+    """ Logging level """
+
+    log_fmt: str = "{time} | {level}: {extra} {message}"
+    """ Logging message format """
+
     model_config = SettingsConfigDict(env_file=".env", nested_model_default_partial_update=True,
                                       env_nested_delimiter="__", extra='ignore', case_sensitive=False,
                                       json_file="config.json")
-    log_level: str = "INFO"
-    """
-    Logging level
-    """
-    log_fmt: str = "{time} | {level}: {extra} {message}"
-    """
-    Logging message format
-    """
 
     @classmethod
     def settings_customise_sources(
@@ -75,6 +78,24 @@ class AppSettings(BaseSettings):
 
 
 @dataclass(frozen=True, slots=True)
+class AppSettings:
+    s3: S3Settings = S3Settings()
+    """ S3 or minio connection parameters """
+
+    buckets: dict[str, BucketSettings] = ()
+    """ Collection of buckets with thumbnail settings """
+
+    source_bucket: str = "images"
+    """ Bucket with source images to process """
+
+    log_level: str = "INFO"
+    """ Logging level """
+
+    log_fmt: str = "{time} | {level}: {extra} {message}"
+    """ Logging message format """
+
+
+@dataclass(frozen=True, slots=True)
 class BucketsMap:
     source_bucket: str
     buckets: dict[str, BucketSettings]
@@ -82,4 +103,4 @@ class BucketsMap:
     alias_map: dict[str, str]
 
 
-app_settings: AppSettings = AppSettings()
+app_base_settings: AppBaseSettings = AppBaseSettings()
