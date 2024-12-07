@@ -3,8 +3,18 @@ from dataclasses import dataclass
 from pydantic import BaseModel, HttpUrl
 from pydantic_settings import BaseSettings, SettingsConfigDict, PydanticBaseSettingsSource, JsonConfigSettingsSource
 
+@dataclass(frozen=True, slots=True)
+class ImageSize:
+    w: int = 200
+    """ Image width, default value is 200px """
+
+    h: int = 200
+    """ Image height, default value is 200px """
 
 class BucketSettings(BaseModel):
+    size: ImageSize | None = None
+    """ Thumbnail's size in the bucket, 200x200px by default """
+
     width: int = 200
     """
     Thumbnail's width in the bucket, 200px by default 
@@ -59,6 +69,9 @@ class AppBaseSettings(BaseSettings):
 
     log_fmt: str = "{time} | {level}: {extra} {message}"
     """ Logging message format """
+
+    size: ImageSize | None = None
+    """ Thumbnail's default image size, 200x200px be default """
 
     model_config = SettingsConfigDict(env_file=".env", nested_model_default_partial_update=True,
                                       env_nested_delimiter="__", extra='ignore', case_sensitive=False,

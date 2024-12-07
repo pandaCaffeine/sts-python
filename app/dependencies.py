@@ -50,11 +50,10 @@ def get_buckets_map(app_settings: Annotated[AppSettings, Depends(get_app_setting
     alias_map = dict[str, str]()
     buckets_dict: dict[str, BucketSettings] = dict[str, BucketSettings]()
     for bucket_name, bucket_cfg in app_settings.buckets.items():
-        if bucket_cfg.alias is None:
-            continue
         buckets_dict[bucket_name] = bucket_cfg.model_copy(
             update={'source_bucket': bucket_cfg.source_bucket or app_settings.source_bucket})
-        alias_map[bucket_cfg.alias] = bucket_name
+        if bucket_cfg.alias:
+            alias_map[bucket_cfg.alias] = bucket_name
 
     # source bucket cfg to map
     source_bucket_cfg = BucketSettings()
