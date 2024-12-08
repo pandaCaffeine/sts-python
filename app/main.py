@@ -9,6 +9,7 @@ from app.images.buckets_service import BucketsService
 from app.images.dependencies import get_minio_client, get_storage_client
 from app import web_app
 from app import __version__
+from app.stats.dependencies import create_database
 
 
 def __configure_logger():
@@ -31,6 +32,9 @@ def __start_app():
 
     hc_service = get_health_check_service()
     hc_service.set_buckets_info(buckets_info)
+
+    l.info("Check and create db")
+    create_database()
 
     l.info("Starting web host")
     uvicorn.run(web_app, host="0.0.0.0", port=80, proxy_headers=True)

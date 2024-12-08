@@ -106,6 +106,9 @@ class AppSettings:
     size: ImageSize | str | None = None
     """ Thumbnail's default image size, 200x200px be default """
 
+    sqlite: str = "sqlite:///database.sqlite"
+    """ Connection string to sqlite database """
+
 
 @dataclass(frozen=True, slots=True)
 class BucketsMap:
