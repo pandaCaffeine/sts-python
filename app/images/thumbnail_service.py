@@ -31,7 +31,7 @@ class ThumbnailService:
         self._logger = logger
 
     def get_thumbnail(self, bucket: str, file_name: str, etag: str | None) -> Response:
-        bucket_settings = self._get_bucket_settings(bucket)
+        bucket_settings: BucketSettings = self._get_bucket_settings(bucket)
         # if bucket was not configured: the given bucket is not a source bucket and not a thumbnail bucket
         if not bucket_settings:
             self._logger.debug(f"Bucket {bucket} is not configured")
@@ -53,7 +53,7 @@ class ThumbnailService:
 
         image_data = self._storage_client.load_file(bucket_settings.source_bucket, file_name)
         self._logger.debug("Source file was loaded into memory")
-        thumbnail = resize_image(image_data, bucket_settings.width, bucket_settings.height)
+        thumbnail = resize_image(image_data, bucket_settings.size.w, bucket_settings.size.h)
         if thumbnail.error:
             self._logger.warning(f"Failed to create thumbnail: {thumbnail.error}")
             return NOT_FOUND_RESPONSE
