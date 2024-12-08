@@ -1,10 +1,12 @@
 {
-  "source_bucket": "images2",
   "buckets": {
     "thumbnail-small": {
-      "width": 300,
-      "height": 300,
+      "size": {
+        "w": 300,
+        "h": 300
+      },
       "alias": "small"
     }
-  }
+  },
+  "s3": "http://MINIO_AK:MINIO_SK@localhost:9000/eu-west-1/images2"
 }

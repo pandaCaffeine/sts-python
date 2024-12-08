@@ -6,10 +6,17 @@ from fastapi.params import Depends
 from loguru import logger
 from minio import Minio
 
-from app.config import app_settings, BucketsMap
-from app.dependencies import get_buckets_map
+from app.config import app_settings, bucket_map
 from app.images.storage_client import StorageClient, S3StorageClient
 from app.images.thumbnail_service import ThumbnailService
+
+
+def _parse_path(path: str) -> (str, str | None):
+    assert path, "path is required"
+    fragments: list[str] = [t for t in path.split('/') if t]
+    if len(fragments) > 1:
+        return fragments[0], fragments[1]
+    return fragments[0], None
 
 
 @lru_cache
@@ -30,6 +37,5 @@ def get_request_logger(bucket: str, file_name: str):
 
 
 def get_thumbnail_service(storage_client: Annotated[StorageClient, Depends(get_storage_client)],
-                          buckets_map: Annotated[BucketsMap, Depends(get_buckets_map)],
                           request_logger: Annotated[logging.Logger, Depends(get_request_logger)]) -> ThumbnailService:
-    return ThumbnailService(storage_client, buckets_map, request_logger)
+    return ThumbnailService(storage_client, bucket_map, request_logger)
