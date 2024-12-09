@@ -28,6 +28,7 @@ class StatService:
     def _invalidate_hits(self, path: str) -> None:
         with self._session_factory() as session:
             session.query(RequestStat).where(RequestStat.path == path).delete(synchronize_session=False)
+            session.commit()
 
     def handle_request(self, path: str, response_code: int) -> None:
         if response_code == HTTP_404_NOT_FOUND:
