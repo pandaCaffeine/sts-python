@@ -2,7 +2,7 @@ import datetime
 
 from sqlalchemy import select, desc
 from sqlalchemy.orm import Session, sessionmaker
-from starlette.status import HTTP_404_NOT_FOUND, HTTP_302_FOUND, HTTP_200_OK, HTTP_304_NOT_MODIFIED
+from starlette.status import HTTP_404_NOT_FOUND, HTTP_200_OK, HTTP_304_NOT_MODIFIED
 
 from app.stats.models import RequestStat
 

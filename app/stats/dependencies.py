@@ -11,13 +11,5 @@ _engine = create_engine(app_settings.sqlite, connect_args={"check_same_thread": 
 SessionMaker = sessionmaker(_engine)
 
 
-def _create_session():
-    with Session(_engine) as session:
-        yield session
-
-
-SessionDep = Annotated[Session, Depends(_create_session)]
-
-
 def create_database():
     BaseModel.metadata.create_all(_engine)
