@@ -2,7 +2,7 @@ import datetime
 
 from sqlalchemy import select, desc
 from sqlalchemy.orm import Session, sessionmaker
-from starlette.status import HTTP_404_NOT_FOUND, HTTP_200_OK, HTTP_304_NOT_MODIFIED
+import starlette.status as http_codes
 
 from app.stats.models import RequestStat
 
@@ -31,11 +31,11 @@ class StatService:
             session.commit()
 
     def handle_request(self, path: str, response_code: int) -> None:
-        if response_code == HTTP_404_NOT_FOUND:
+        if response_code == http_codes.HTTP_404_NOT_FOUND:
             self._invalidate_hits(path)
             return
 
-        if response_code in [HTTP_304_NOT_MODIFIED, HTTP_200_OK]:
+        if response_code in [http_codes.HTTP_304_NOT_MODIFIED, http_codes.HTTP_200_OK]:
             self._add_hit(path)
 
     def get_top_requests(self, count: int = 5) -> set[str]:

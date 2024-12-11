@@ -1,4 +1,4 @@
-from fastapi import Request, BackgroundTasks
+from fastapi import Request, BackgroundTasks, Response
 from starlette.middleware.base import RequestResponseEndpoint
 
 from app import bucket_map
@@ -20,18 +20,16 @@ def _get_all_buckets() -> frozenset[str]:
 _known_bucket_paths = _get_all_buckets()
 
 
-async def stats_middleware(request: Request, _next: RequestResponseEndpoint):
+async def stats_middleware(request: Request, _next: RequestResponseEndpoint) -> Response:
     response = await _next(request)
     path_segments = [t for t in request.url.path.split('/') if t]
-    if len(path_segments) == 0:
-        return response
 
-    first_fragment = path_segments[0]
-    if not first_fragment in _known_bucket_paths:
-        return response
+    if len(path_segments) > 0:
+        first_fragment = path_segments[0]
+        if first_fragment in _known_bucket_paths:
+            background_tasks = response.background or BackgroundTasks()
+            stats_service = StatService(SessionMaker)
+            background_tasks.add_task(stats_service.handle_request, request.url.path, response.status_code)
+            response.background = background_tasks
 
-    background_tasks = response.background or BackgroundTasks()
-    stats_service = StatService(SessionMaker)
-    background_tasks.add_task(stats_service.handle_request, request.url.path, response.status_code)
-    response.background = background_tasks
     return response
