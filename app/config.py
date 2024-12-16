@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 
-import pydantic_core
+import pydantic.networks
 from pydantic import BaseModel, HttpUrl
 from pydantic_settings import BaseSettings, SettingsConfigDict, PydanticBaseSettingsSource, JsonConfigSettingsSource
 
@@ -142,7 +142,7 @@ def _parse_path(path: str) -> (str, str | None):
     return fragments[0], None
 
 
-def _url_to_s3settings(s3_url: pydantic_core.Url) -> (S3Settings, str | None):
+def _url_to_s3settings(s3_url: pydantic.networks.HttpUrl) -> (S3Settings, str | None):
     assert s3_url, "url is required"
     region, source_bucket = _parse_path(s3_url.path)
 
@@ -155,7 +155,7 @@ def _base_app_settings_to_app_settings(base_settings: _AppBaseSettings) -> AppSe
     source_bucket = base_settings.source_bucket
     s3: S3Settings
     url_source_bucket: str | None = None
-    if isinstance(base_settings.s3, pydantic_core.Url):
+    if isinstance(base_settings.s3, pydantic.networks.HttpUrl):
         s3, url_source_bucket = _url_to_s3settings(base_settings.s3)
     else:
         s3 = base_settings.s3
