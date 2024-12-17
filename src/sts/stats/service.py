@@ -4,7 +4,7 @@ from sqlalchemy import select, desc
 from sqlalchemy.orm import Session, sessionmaker
 import starlette.status as http_codes
 
-from app.stats.models import RequestStat
+from sts.stats.models import RequestStat
 
 
 class StatService:
