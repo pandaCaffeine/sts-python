@@ -1,9 +1,9 @@
 from fastapi import Request, BackgroundTasks, Response
 from starlette.middleware.base import RequestResponseEndpoint
 
-from app import bucket_map
-from app.stats.dependencies import SessionMaker
-from app.stats.service import StatService
+from sts.config import bucket_map
+from sts.stats.dependencies import SessionMaker
+from sts.stats.service import StatService
 
 
 def _get_all_buckets() -> frozenset[str]:

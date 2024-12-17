@@ -1,6 +1,6 @@
 from functools import lru_cache
 
-from app.healthcheck.service import HealthCheckService
+from sts.healthcheck.service import HealthCheckService
 
 
 @lru_cache

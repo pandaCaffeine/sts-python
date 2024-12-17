@@ -1,4 +1,4 @@
-from app.models import BucketsInfo
+from sts.models import BucketsInfo
 
 
 class HealthCheckService:

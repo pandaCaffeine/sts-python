@@ -4,8 +4,8 @@ from fastapi import APIRouter
 from fastapi.params import Depends, Header
 from starlette.responses import Response
 
-from app.images.dependencies import get_thumbnail_service
-from app.images.thumbnail_service import ThumbnailService
+from sts.images.dependencies import get_thumbnail_service
+from sts.images.thumbnail_service import ThumbnailService
 
 images_router = APIRouter()
 

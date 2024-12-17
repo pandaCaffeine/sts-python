@@ -2,9 +2,9 @@ from logging import Logger
 
 from minio import S3Error
 
-from app.config import AppSettings
-from app.images.storage_client import StorageClient
-from app.models import BucketStatus, BucketsInfo
+from sts.config import AppSettings
+from sts.images.storage_client import StorageClient
+from sts.models import BucketStatus, BucketsInfo
 
 
 class BucketsService:

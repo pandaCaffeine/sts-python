@@ -3,7 +3,7 @@ from io import BytesIO
 import PIL
 from PIL import Image
 
-from app.images.models import ImageData
+from sts.images.models import ImageData
 
 
 def resize_image(data: BytesIO, width: int, height: int) -> ImageData:
