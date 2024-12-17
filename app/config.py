@@ -197,5 +197,8 @@ def _get_buckets_map(settings: AppSettings) -> BucketsMap:
                       all_source_buckets=set(source_buckets))
 
 
-app_settings: AppSettings = _base_app_settings_to_app_settings(_AppBaseSettings())
-bucket_map: BucketsMap = _get_buckets_map(app_settings)
+app_settings: AppSettings = AppSettings()
+bucket_map: BucketsMap = BucketsMap(source_bucket="none", buckets={}, all_source_buckets=set[str](), alias_map={})
+if __name__ == '__main__':
+    app_settings = _base_app_settings_to_app_settings(_AppBaseSettings())
+    bucket_map = _get_buckets_map(app_settings)
