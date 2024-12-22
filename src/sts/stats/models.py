@@ -13,7 +13,6 @@ class RequestPriorityEnum(Enum):
     LOW = 'low'
     MEDIUM = 'medium'
     HIGH = 'high'
-    CRITICAL = 'critical'
 
 
 class RequestStat(BaseModel):
