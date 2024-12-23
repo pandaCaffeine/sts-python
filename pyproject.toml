@@ -18,6 +18,7 @@ uvicorn = "==0.34.0"
 SQLAlchemy = "==2.0.36"
 alembic = "==1.14.0"
 poetry-core = "^1.9.1"
+pg8000 = "==1.31.2"
 
 
 [build-system]
