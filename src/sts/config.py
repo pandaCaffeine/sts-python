@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 
-import pydantic_core
+import pydantic.networks
 from pydantic import BaseModel, HttpUrl
 from pydantic_settings import BaseSettings, SettingsConfigDict, PydanticBaseSettingsSource, JsonConfigSettingsSource
 
@@ -142,7 +142,7 @@ def _parse_path(path: str) -> (str, str | None):
     return fragments[0], None
 
 
-def _url_to_s3settings(s3_url: pydantic_core.Url) -> (S3Settings, str | None):
+def _url_to_s3settings(s3_url: pydantic.networks.HttpUrl) -> (S3Settings, str | None):
     assert s3_url, "url is required"
     region, source_bucket = _parse_path(s3_url.path)
 
@@ -155,7 +155,7 @@ def _base_app_settings_to_app_settings(base_settings: _AppBaseSettings) -> AppSe
     source_bucket = base_settings.source_bucket
     s3: S3Settings
     url_source_bucket: str | None = None
-    if isinstance(base_settings.s3, pydantic_core.Url):
+    if isinstance(base_settings.s3, pydantic.networks.HttpUrl):
         s3, url_source_bucket = _url_to_s3settings(base_settings.s3)
     else:
         s3 = base_settings.s3
@@ -197,5 +197,8 @@ def _get_buckets_map(settings: AppSettings) -> BucketsMap:
                       all_source_buckets=set(source_buckets))
 
 
-app_settings: AppSettings = _base_app_settings_to_app_settings(_AppBaseSettings())
-bucket_map: BucketsMap = _get_buckets_map(app_settings)
+app_settings: AppSettings = AppSettings()
+bucket_map: BucketsMap = BucketsMap(source_bucket="none", buckets={}, all_source_buckets=set[str](), alias_map={})
+if __name__ == '__main__':
+    app_settings = _base_app_settings_to_app_settings(_AppBaseSettings())
+    bucket_map = _get_buckets_map(app_settings)

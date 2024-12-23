@@ -1,0 +1,26 @@
+[tool.poetry]
+name = "sts"
+version = "1.2.0"
+description = "Simple thumbnail service"
+authors = ["Nikita Sakhno"]
+license = "MIT"
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.13"
+minio = "==7.2.12"
+pydantic-core = "==2.27.1"
+fastapi = "==0.115.6"
+pydantic-settings = "==2.7.0"
+loguru = "==0.7.3"
+pillow = "==11.0.0"
+uvicorn = "==0.34.0"
+SQLAlchemy = "==2.0.36"
+alembic = "==1.14.0"
+poetry-core = "^1.9.1"
+pg8000 = "==1.31.2"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"

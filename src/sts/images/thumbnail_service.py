@@ -3,9 +3,9 @@ from logging import Logger
 from starlette import status
 from starlette.responses import Response, StreamingResponse, JSONResponse
 
-from app.config import BucketsMap, BucketSettings
-from app.images.image_processor import resize_image
-from app.images.storage_client import StorageClient, StorageFileItem
+from sts.config import BucketsMap, BucketSettings
+from sts.images.image_processor import resize_image
+from sts.images.storage_client import StorageClient, StorageFileItem
 
 HEADER_ETAG = "Etag"
 HEADER_LEN = "Content-Length"
