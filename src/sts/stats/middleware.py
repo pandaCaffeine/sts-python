@@ -2,7 +2,7 @@ from fastapi import Request, BackgroundTasks, Response
 from starlette.middleware.base import RequestResponseEndpoint
 
 from sts.config import bucket_map
-from sts.stats.dependencies import SessionMaker
+from sts.stats.dependencies import AsyncSessionMaker
 from sts.stats.service import StatService
 
 
@@ -28,7 +28,7 @@ async def stats_middleware(request: Request, _next: RequestResponseEndpoint) -> 
         first_fragment = path_segments[0]
         if first_fragment in _known_bucket_paths:
             background_tasks = response.background or BackgroundTasks()
-            stats_service = StatService(SessionMaker)
+            stats_service = StatService(AsyncSessionMaker)
             background_tasks.add_task(stats_service.handle_request, request.url.path, response.status_code)
             response.background = background_tasks
 
