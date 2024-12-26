@@ -8,8 +8,8 @@ readme = "README.md"
 
 [tool.poetry.dependencies]
 python = "^3.13"
-minio = "==7.2.12"
-pydantic-core = "==2.27.1"
+minio = "==7.2.13"
+pydantic-core = "==2.27.2"
 fastapi = "==0.115.6"
 pydantic-settings = "==2.7.0"
 loguru = "==0.7.3"
@@ -18,7 +18,9 @@ uvicorn = "==0.34.0"
 SQLAlchemy = "==2.0.36"
 alembic = "==1.14.0"
 poetry-core = "^1.9.1"
+asyncpg = "==0.30.0"
 pg8000 = "==1.31.2"
+greenlet = "^3.1.1"
 
 
 [build-system]

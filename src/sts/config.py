@@ -69,6 +69,8 @@ class _AppBaseSettings(BaseSettings):
     size: ImageSize | None = None
     """ Thumbnail's default image size, 200x200px be default """
 
+    db: str = "sqlite:///database.sqlite"
+
     model_config = SettingsConfigDict(env_file=".env", nested_model_default_partial_update=True,
                                       env_nested_delimiter="__", extra='ignore', case_sensitive=False,
                                       json_file="config.json")
@@ -106,7 +108,7 @@ class AppSettings:
     size: ImageSize | str | None = None
     """ Thumbnail's default image size, 200x200px be default """
 
-    sqlite: str = "sqlite:///database.sqlite"
+    db: str = "sqlite:///database.sqlite"
     """ Connection string to sqlite database """
 
 
@@ -168,7 +170,8 @@ def _base_app_settings_to_app_settings(base_settings: _AppBaseSettings) -> AppSe
         default_size = _parse_size(default_size)
 
     return AppSettings(s3=s3, buckets=base_settings.buckets, source_bucket=source_bucket,
-                       log_level=base_settings.log_level, log_fmt=base_settings.log_fmt, size=default_size)
+                       log_level=base_settings.log_level, log_fmt=base_settings.log_fmt, size=default_size,
+                       db=base_settings.db)
 
 
 def _get_buckets_map(settings: AppSettings) -> BucketsMap:
@@ -197,8 +200,5 @@ def _get_buckets_map(settings: AppSettings) -> BucketsMap:
                       all_source_buckets=set(source_buckets))
 
 
-app_settings: AppSettings = AppSettings()
-bucket_map: BucketsMap = BucketsMap(source_bucket="none", buckets={}, all_source_buckets=set[str](), alias_map={})
-if __name__ == '__main__':
-    app_settings = _base_app_settings_to_app_settings(_AppBaseSettings())
-    bucket_map = _get_buckets_map(app_settings)
+app_settings: AppSettings = _base_app_settings_to_app_settings(_AppBaseSettings())
+bucket_map: BucketsMap = _get_buckets_map(app_settings)
