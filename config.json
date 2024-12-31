@@ -8,5 +8,6 @@
       "alias": "small"
     }
   },
-  "s3": "http://MINIO_AK:MINIO_SK@localhost:9000/eu-west-1/images2"
+  "s3": "http://MINIO_AK:MINIO_SK@localhost:9000/eu-west-1/images2",
+  "db": "postgresql+asyncpg://postgres:123@localhost/sts"
 }

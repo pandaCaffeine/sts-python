@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 
-import pydantic_core
+import pydantic.networks
 from pydantic import BaseModel, HttpUrl
 from pydantic_settings import BaseSettings, SettingsConfigDict, PydanticBaseSettingsSource, JsonConfigSettingsSource
 
@@ -69,6 +69,8 @@ class _AppBaseSettings(BaseSettings):
     size: ImageSize | None = None
     """ Thumbnail's default image size, 200x200px be default """
 
+    db: str = "sqlite:///database.sqlite"
+
     model_config = SettingsConfigDict(env_file=".env", nested_model_default_partial_update=True,
                                       env_nested_delimiter="__", extra='ignore', case_sensitive=False,
                                       json_file="config.json")
@@ -106,6 +108,9 @@ class AppSettings:
     size: ImageSize | str | None = None
     """ Thumbnail's default image size, 200x200px be default """
 
+    db: str = "sqlite:///database.sqlite"
+    """ Connection string to sqlite database """
+
 
 @dataclass(frozen=True, slots=True)
 class BucketsMap:
@@ -139,7 +144,7 @@ def _parse_path(path: str) -> (str, str | None):
     return fragments[0], None
 
 
-def _url_to_s3settings(s3_url: pydantic_core.Url) -> (S3Settings, str | None):
+def _url_to_s3settings(s3_url: pydantic.networks.HttpUrl) -> (S3Settings, str | None):
     assert s3_url, "url is required"
     region, source_bucket = _parse_path(s3_url.path)
 
@@ -152,7 +157,7 @@ def _base_app_settings_to_app_settings(base_settings: _AppBaseSettings) -> AppSe
     source_bucket = base_settings.source_bucket
     s3: S3Settings
     url_source_bucket: str | None = None
-    if isinstance(base_settings.s3, pydantic_core.Url):
+    if isinstance(base_settings.s3, pydantic.networks.HttpUrl):
         s3, url_source_bucket = _url_to_s3settings(base_settings.s3)
     else:
         s3 = base_settings.s3
@@ -165,7 +170,8 @@ def _base_app_settings_to_app_settings(base_settings: _AppBaseSettings) -> AppSe
         default_size = _parse_size(default_size)
 
     return AppSettings(s3=s3, buckets=base_settings.buckets, source_bucket=source_bucket,
-                       log_level=base_settings.log_level, log_fmt=base_settings.log_fmt, size=default_size)
+                       log_level=base_settings.log_level, log_fmt=base_settings.log_fmt, size=default_size,
+                       db=base_settings.db)
 
 
 def _get_buckets_map(settings: AppSettings) -> BucketsMap:
