@@ -15,22 +15,33 @@ class ImageSize:
     """ Image height, default value is 200px """
 
 
-class BucketSettings(BaseModel):
-    size: ImageSize | None = None
+class _BucketSettings(BaseModel):
+    size: ImageSize | str | None = None
     """ Thumbnail's size in the bucket, 200x200px by default """
 
     life_time_days: int = 30
-    """
-    How many days files in the bucket live, in days. 30 days by default. Set to zero, to make life time infinity.
-    """
+    """ How many days files in the bucket live, in days. 30 days by default. Set to zero, to make life time infinity """
+
     source_bucket: str | None = None
-    """
-    Overrides default source bucket, can be None
-    """
+    """ Overrides default source bucket, can be None """
+
     alias: str | None = None
-    """
-    Optional alias for the bucket, can be used for alternative routes
-    """
+    """ Optional alias for the bucket, can be used for alternative routes """
+
+
+@dataclass(frozen=True, slots=True)
+class BucketSettings:
+    size: ImageSize
+    """ Thumbnail's size in the bucket, 200x200px by default """
+
+    source_bucket: str
+    """ Overrides default source bucket, can be None """
+
+    life_time_days: int = 30
+    """ How many days files in the bucket live, in days. 30 days by default. Set to zero, to make life time infinity """
+
+    alias: str | None = None
+    """ Optional alias for the bucket, can be used for alternative routes """
 
 
 @dataclass(frozen=True, slots=True)
@@ -55,7 +66,7 @@ class _AppBaseSettings(BaseSettings):
     s3: S3Settings | HttpUrl = S3Settings()
     """ S3 or minio connection parameters """
 
-    buckets: dict[str, BucketSettings] | None = None
+    buckets: dict[str, _BucketSettings] | None = None
     """ Collection of buckets with thumbnail settings """
 
     source_bucket: str | None = None
@@ -129,6 +140,16 @@ def _parse_size(source: str) -> ImageSize:
     raise ValueError(f"Couldn't parse source string '{source}' into ImageSize")
 
 
+def _parse_size_or_default(source: ImageSize | str | None, default_size: ImageSize) -> ImageSize:
+    if not source:
+        return default_size
+
+    if isinstance(source, str):
+        return _parse_size(source)
+
+    return source
+
+
 def _parse_path(path: str) -> (str, str | None):
     fragments = [str(t) for t in path.split('/') if t]
     if len(fragments) < 1:
@@ -165,7 +186,17 @@ def _base_app_settings_to_app_settings(base_settings: _AppBaseSettings) -> AppSe
     if isinstance(default_size, str):
         default_size = _parse_size(default_size)
 
-    return AppSettings(s3=s3, buckets=base_settings.buckets, source_bucket=source_bucket,
+    if not base_settings.buckets:
+        raise ValueError("Buckets were not configure, check configuration")
+
+    parsed_buckets = dict[str, BucketSettings]()
+    for k, v in base_settings.buckets.items():
+        bucket_settings = BucketSettings(size=_parse_size_or_default(v.size, default_size),
+                                         source_bucket=v.source_bucket or source_bucket,
+                                         life_time_days=v.life_time_days, alias=v.alias)
+        parsed_buckets[k] = bucket_settings
+
+    return AppSettings(s3=s3, buckets=parsed_buckets, source_bucket=source_bucket,
                        log_level=base_settings.log_level, log_fmt=base_settings.log_fmt, size=default_size)
 
 
@@ -176,19 +207,12 @@ def _get_buckets_map(settings: AppSettings) -> BucketsMap:
     alias_map = dict[str, str]()
     buckets_dict: dict[str, BucketSettings] = dict[str, BucketSettings]()
     for bucket_name, bucket_cfg in settings.buckets.items():
-        bucket_data = bucket_cfg.model_copy(
-            update={'source_bucket': bucket_cfg.source_bucket or settings.source_bucket,
-                    'size': bucket_cfg.size or settings.size})
-        assert bucket_data.source_bucket, f"source_bucket is not configured for bucket '{bucket_name}'"
-        assert bucket_data.size, f"size in not configured for bucket '{bucket_name}'"
-
-        buckets_dict[bucket_name] = bucket_data
+        buckets_dict[bucket_name] = bucket_cfg
         if bucket_cfg.alias:
             alias_map[bucket_cfg.alias] = bucket_name
 
     # source bucket cfg to map
-    source_bucket_cfg = BucketSettings()
-    source_bucket_cfg.source_bucket = settings.source_bucket
+    source_bucket_cfg = BucketSettings(source_bucket=settings.source_bucket, size=settings.size)
     buckets_dict[settings.source_bucket] = source_bucket_cfg
 
     return BucketsMap(alias_map=alias_map, buckets=buckets_dict, source_bucket=settings.source_bucket,
