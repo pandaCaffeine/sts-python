@@ -3,12 +3,12 @@ import sys
 import uvicorn
 from loguru import logger
 
-from app.config import app_settings
-from app.healthcheck.dependencies import get_health_check_service
-from app.images.buckets_service import BucketsService
-from app.images.dependencies import get_minio_client, get_storage_client
-from app import web_app
-from app import __version__
+from sts.config import app_settings
+from sts.healthcheck.dependencies import get_health_check_service
+from sts.images.buckets_service import BucketsService
+from sts.images.dependencies import get_minio_client, get_storage_client
+from sts import web_app
+from sts import __version__
 
 
 def __configure_logger():
