@@ -1,12 +1,28 @@
-FROM python:3.12-alpine
+# building layer
+FROM python:3.13.1-alpine AS builder
 LABEL org.opencontainers.image.authors="adream74@gmail.com"
 
-WORKDIR /code
-COPY ./requirements.txt /code/requirements.txt
-COPY app/main.py /code/main.py
-# curl is required to perform health checks
-RUN pip install --no-cache-dir --upgrade -r /code/requirements.txt && apk upgrade --no-cache && apk --no-cache add curl
+RUN pip install poetry==1.8.5
 
-COPY ./app /code/app
+ENV POETRY_NO_INTERACTION=1 \
+    POETRY_VIRTUALENVS_IN_PROJECT=1 \
+    POETRY_VIRTUALENVS_CREATE=1 \
+    POETRY_CACHE_DIR=/tmp/poetry_cache
 
-CMD ["python", "-m", "app.main"]
+WORKDIR /app
+
+COPY pyproject.toml poetry.lock ./
+RUN touch README.md && poetry install --only main && rm -rf $POETRY_CACHE_DIR
+
+# runtaime layer
+FROM python:3.13.1-alpine AS runtime
+
+ENV VIRTUAL_ENV=/app/.venv \
+    PATH="/app/.venv/bin:$PATH"
+
+RUN apk upgrade --no-cache && apk --no-cache add curl
+
+COPY --from=builder ${VIRTUAL_ENV} ${VIRTUAL_ENV}
+COPY src/sts ./sts
+
+ENTRYPOINT ["python", "-m", "sts"]

@@ -1,14 +1,16 @@
 import sys
 
 import uvicorn
+from fastapi import FastAPI
 from loguru import logger
 
-from app.config import app_settings
-from app.healthcheck.dependencies import get_health_check_service
-from app.images.buckets_service import BucketsService
-from app.images.dependencies import get_minio_client, get_storage_client
-from app import web_app
-from app import __version__
+from sts import __version__
+from sts.config import app_settings
+from sts.healthcheck.dependencies import get_health_check_service
+from sts.healthcheck.routes import hc_route
+from sts.images.buckets_service import BucketsService
+from sts.images.dependencies import get_minio_client, get_storage_client
+from sts.images.routes import images_router
 
 
 def __configure_logger():
@@ -19,9 +21,14 @@ def __configure_logger():
                format=app_settings.log_fmt)
 
 
-def __start_app():
-    __configure_logger()
+def __create_fastapi_app() -> FastAPI:
+    result = FastAPI()
+    result.include_router(images_router)
+    result.include_router(hc_route)
+    return result
 
+
+def __start_app():
     l = logger.bind(source="core")
     minio = get_minio_client()
     storage_client = get_storage_client(minio)
@@ -32,11 +39,13 @@ def __start_app():
     hc_service = get_health_check_service()
     hc_service.set_buckets_info(buckets_info)
 
+    web_app = __create_fastapi_app()
     l.info("Starting web host")
     uvicorn.run(web_app, host="0.0.0.0", port=80, proxy_headers=True)
 
 
 if __name__ == "__main__":
+    __configure_logger()
     print(f"sts v{__version__}")
 
     __start_app()

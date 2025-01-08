@@ -5,9 +5,9 @@ from fastapi.params import Depends
 from starlette import status
 from starlette.responses import Response
 
-from app.healthcheck.dependencies import get_health_check_service
-from app.healthcheck.service import HealthCheckService
-from app import __version__
+from sts.healthcheck.dependencies import get_health_check_service
+from sts.healthcheck.service import HealthCheckService
+from sts import __version__
 
 hc_route = APIRouter()
 

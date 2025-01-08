@@ -6,7 +6,11 @@
         "h": 300
       },
       "alias": "small"
+    },
+    "thumbnail-medium": {
+      "size": "500x500",
+      "alias": "medium"
     }
   },
-  "s3": "http://MINIO_AK:MINIO_SK@localhost:9000/eu-west-1/images2"
+  "s3": "http://MINIO_AK:MINIO_SK@localhost:9000/eu-west-1/images"
 }
