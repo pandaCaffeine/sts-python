@@ -1,20 +1,16 @@
-from typing import Annotated
-
 from fastapi import APIRouter
-from fastapi.params import Depends
 from starlette import status
 from starlette.responses import Response
 
-from sts.healthcheck.dependencies import get_health_check_service
-from sts.healthcheck.service import HealthCheckService
 from sts import __version__
+from sts.healthcheck.dependencies import HealthCheckServiceDep
 
 hc_route = APIRouter()
 
 
 @hc_route.get("/hc")
 @hc_route.get("/health")
-def get_health_check(service: Annotated[HealthCheckService, Depends(get_health_check_service)],
+def get_health_check(service: HealthCheckServiceDep,
                      response: Response) -> dict:
     result = service.bucket_info
     if result.error:

@@ -6,10 +6,10 @@ from loguru import logger
 
 from sts import __version__
 from sts.config import app_settings
-from sts.healthcheck.dependencies import get_health_check_service
+from sts.healthcheck.dependencies import HealthCheckServiceDep
 from sts.healthcheck.routes import hc_route
 from sts.images.buckets_service import BucketsService
-from sts.images.dependencies import get_minio_client, get_storage_client
+from sts.images.dependencies import get_storage_client
 from sts.images.routes import images_router
 
 
@@ -30,13 +30,12 @@ def __create_fastapi_app() -> FastAPI:
 
 def __start_app():
     l = logger.bind(source="core")
-    minio = get_minio_client()
-    storage_client = get_storage_client(minio)
 
+    storage_client = get_storage_client()
     buckets_service = BucketsService(app_settings, storage_client, l)
     buckets_info = buckets_service.create_buckets()
 
-    hc_service = get_health_check_service()
+    hc_service = HealthCheckServiceDep()
     hc_service.set_buckets_info(buckets_info)
 
     web_app = __create_fastapi_app()

@@ -1,5 +1,5 @@
-import logging
 from functools import lru_cache
+from logging import Logger
 from typing import Annotated
 
 from fastapi.params import Depends
@@ -11,16 +11,8 @@ from sts.images.storage_client import StorageClient, S3StorageClient
 from sts.images.thumbnail_service import ThumbnailService
 
 
-def _parse_path(path: str) -> (str, str | None):
-    assert path, "path is required"
-    fragments: list[str] = [t for t in path.split('/') if t]
-    if len(fragments) > 1:
-        return fragments[0], fragments[1]
-    return fragments[0], None
-
-
 @lru_cache
-def get_minio_client() -> Minio:
+def _get_minio_client() -> Minio:
     s3_settings = app_settings.s3
     return Minio(endpoint=s3_settings.endpoint, access_key=s3_settings.access_key,
                  secret_key=s3_settings.secret_key, region=s3_settings.region,
@@ -28,14 +20,24 @@ def get_minio_client() -> Minio:
 
 
 @lru_cache
-def get_storage_client(minio: Annotated[Minio, Depends(get_minio_client)]) -> StorageClient:
-    return S3StorageClient(minio)
+def get_storage_client() -> StorageClient:
+    minio_client = _get_minio_client()
+    return S3StorageClient(minio_client)
 
 
-def get_request_logger(bucket: str, file_name: str):
+StorageClientDep = Annotated[StorageClient, Depends(get_storage_client)]
+
+
+def _get_request_logger(bucket: str, file_name: str) -> Logger:
     return logger.bind(bucket=bucket, file_name=file_name)
 
 
-def get_thumbnail_service(storage_client: Annotated[StorageClient, Depends(get_storage_client)],
-                          request_logger: Annotated[logging.Logger, Depends(get_request_logger)]) -> ThumbnailService:
+RequestLoggerDep = Annotated[Logger, Depends(_get_request_logger)]
+
+
+def _get_thumbnail_service(storage_client: StorageClientDep,
+                           request_logger: RequestLoggerDep) -> ThumbnailService:
     return ThumbnailService(storage_client, bucket_map, request_logger)
+
+
+ThumbnailServiceDep = Annotated[ThumbnailService, Depends(_get_thumbnail_service)]
