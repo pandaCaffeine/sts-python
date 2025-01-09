@@ -3,7 +3,8 @@ from logging import Logger
 from starlette import status
 from starlette.responses import Response, StreamingResponse, JSONResponse
 
-from sts.config import BucketsMap, BucketSettings
+from sts.config import BucketSettings
+from sts.images.file_storage_scanner import FileStorageScanner, ScanStatus
 from sts.images.image_processor import resize_image
 from sts.images.storage_client import StorageClient, StorageFileItem
 
@@ -18,40 +19,58 @@ __all__ = ['ThumbnailService']
 
 class ThumbnailService:
     _storage_client: StorageClient
-    _buckets_map: BucketsMap
     _logger: Logger
+    _file_storage_scanner: FileStorageScanner
 
-    def __init__(self, storage_client: StorageClient, buckets_map: BucketsMap, logger: Logger):
+    def __init__(self, storage_client: StorageClient, file_storage_scanner: FileStorageScanner,
+                 logger: Logger):
         assert storage_client is not None, "storage_client is required"
-        assert buckets_map is not None, "buckets_map is required"
         assert logger is not None, "logger is required"
+        assert file_storage_scanner, "file_storage_scanner is required"
 
         self._storage_client = storage_client
-        self._buckets_map = buckets_map
         self._logger = logger
+        self._file_storage_scanner = file_storage_scanner
 
     def get_thumbnail(self, bucket: str, file_name: str, etag: str | None) -> Response:
-        bucket_settings: BucketSettings = self._get_bucket_settings(bucket)
-        # if bucket was not configured: the given bucket is not a source bucket and not a thumbnail bucket
-        if not bucket_settings:
+        scan_result = self._file_storage_scanner.scan_file(bucket, file_name)
+        result: Response
+
+        if scan_result.status == ScanStatus.BUCKET_NOT_FOUND:
             self._logger.debug(f"Bucket {bucket} is not configured")
-            return NOT_FOUND_RESPONSE
-
-        source_file_stat = self._storage_client.get_file_stat(bucket_settings.source_bucket, file_name)
-        if not source_file_stat:
+            result = NOT_FOUND_RESPONSE
+        elif scan_result.status == ScanStatus.SOURCE_FILE_NOT_FOUND:
             self._logger.debug("Source file was not found")
-            return NOT_FOUND_RESPONSE
+            result = NOT_FOUND_RESPONSE
+        elif scan_result.status == ScanStatus.USE_SOURCE_FILE:
+            assert scan_result.source_file_stat, "scan_result doesn't have source_file_stat"
+            result = self._get_file_response(scan_result.source_file_stat, etag)
+        elif scan_result.status == ScanStatus.FILE_FOUND:
+            self._logger.debug("Found thumbnail file")
+            assert scan_result.file_stat, "scan_result doesn't have file_stat"
+            result = self._get_file_response(scan_result.file_stat, etag)
+        else:
+            assert scan_result.source_file_stat, "scan_result doesn't have source_file_stat"
+            assert scan_result.bucket_settings, "scan_result doesn't have bucket_settings"
+            result = self._create_thumbnail_and_upload(scan_result.source_file_stat, scan_result.bucket_settings,
+                                                       bucket)
 
-        if bucket == bucket_settings.source_bucket:
-            return self._get_file_response(source_file_stat, etag)
+        return result
 
-        thumbnail_stat = self._storage_client.get_file_stat(bucket, file_name)
-        if thumbnail_stat:
-            if thumbnail_stat.parent_etag == source_file_stat.etag:
-                self._logger.debug("Found thumbnail file")
-                return self._get_file_response(thumbnail_stat, etag)
+    def get_thumbnail_by_alias(self, source_bucket: str, file_name: str, alias: str, etag: str | None) -> Response:
+        result: Response
+        bucket = self._file_storage_scanner.find_bucket_by_alias(source_bucket, alias)
+        if bucket:
+            result = self.get_thumbnail(bucket, file_name, etag)
+        else:
+            self._logger.debug(f"Source bucket {source_bucket} was not found, return 404")
+            result = NOT_FOUND_RESPONSE
 
-        image_data = self._storage_client.load_file(bucket_settings.source_bucket, file_name)
+        return result
+
+    def _create_thumbnail_and_upload(self, source_file_stat: StorageFileItem,
+                                     bucket_settings: BucketSettings, bucket: str) -> Response:
+        image_data = self._storage_client.load_file(source_file_stat.directory, source_file_stat.file_name)
         self._logger.debug("Source file was loaded into memory")
         thumbnail = resize_image(image_data, bucket_settings.size.w, bucket_settings.size.h)
         if thumbnail.error:
@@ -59,7 +78,7 @@ class ThumbnailService:
             return NOT_FOUND_RESPONSE
 
         self._logger.debug("Thumbnail file was created")
-        put_result = self._storage_client.put_file(bucket, file_name, thumbnail.data,
+        put_result = self._storage_client.put_file(bucket, source_file_stat.file_name, thumbnail.data,
                                                    content_type=thumbnail.content_type,
                                                    parent_etag=source_file_stat.etag)
         self._logger.debug("Thumbnail was uploaded to storage")
@@ -67,20 +86,6 @@ class ThumbnailService:
         headers = {HEADER_ETAG: put_result.etag, HEADER_LEN: str(put_result.size)}
         return StreamingResponse(thumbnail.data, media_type=thumbnail.content_type,
                                  headers=headers)
-
-    def get_thumbnail_by_alias(self, source_bucket: str, file_name: str, alias: str, etag: str | None) -> Response:
-        if not source_bucket in self._buckets_map.all_source_buckets:
-            self._logger.debug(f"Source bucket {source_bucket} was not found, return 404")
-            return NOT_FOUND_RESPONSE
-
-        bucket = self._buckets_map.alias_map.get(alias, source_bucket)
-        return self.get_thumbnail(bucket, file_name, etag)
-
-    def _get_bucket_settings(self, bucket: str) -> BucketSettings:
-        if bucket == self._buckets_map.source_bucket:
-            return self._buckets_map.buckets[bucket]
-
-        return self._buckets_map.buckets.get(bucket, None)
 
     def _get_file_response(self, file_storage_item: StorageFileItem, etag: str | None) -> Response:
         if etag and file_storage_item.etag == etag:
