@@ -45,11 +45,10 @@ class FileStorageScannerImp(FileStorageScanner):
         self._buckets_map = buckets_map
 
     def find_bucket_by_alias(self, source_bucket: str, alias: str) -> str | None:
-        result: str | None = None
         if not source_bucket in self._buckets_map.all_source_buckets:
-            result = None
+            result: str | None = None
         else:
-            result = self._buckets_map.alias_map.get(alias, source_bucket)
+            result: str | None = self._buckets_map.alias_map.get(alias, source_bucket)
 
         return result
 
