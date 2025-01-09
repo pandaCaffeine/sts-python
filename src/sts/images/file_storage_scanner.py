@@ -33,7 +33,7 @@ class FileStorageScanner(ABC):
         pass
 
 
-class FileStorageScannerImp(FileStorageScanner):
+class FileStorageScannerImpl(FileStorageScanner):
     _storage_client: StorageClient
     _buckets_map: BucketsMap
 
