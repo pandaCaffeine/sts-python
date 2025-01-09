@@ -48,7 +48,7 @@ class FileStorageScannerImp(FileStorageScanner):
         if not source_bucket in self._buckets_map.all_source_buckets:
             result: str | None = None
         else:
-            result: str | None = self._buckets_map.alias_map.get(alias, source_bucket)
+            result = self._buckets_map.alias_map.get(alias, source_bucket)
 
         return result
 
