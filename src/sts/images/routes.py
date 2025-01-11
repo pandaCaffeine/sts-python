@@ -8,7 +8,7 @@ from sts.images.dependencies import ThumbnailServiceDep
 
 images_router = APIRouter()
 
-_EtagDep = Annotated[str, None, Header(alias="If-None-Match")]
+_EtagDep = Annotated[str | None, Header(alias="If-None-Match")]
 
 
 @images_router.get("/{bucket}/{file_name}")

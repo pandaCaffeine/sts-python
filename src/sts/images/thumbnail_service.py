@@ -71,9 +71,13 @@ class ThumbnailService:
     def _create_thumbnail_and_upload(self, source_file_stat: StorageFileItem,
                                      bucket_settings: BucketSettings, bucket: str) -> Response:
         image_data = self._storage_client.load_file(source_file_stat.directory, source_file_stat.file_name)
+        if not image_data:
+            self._logger.debug("Source file was not found")
+            return NOT_FOUND_RESPONSE
+
         self._logger.debug("Source file was loaded into memory")
         thumbnail = resize_image(image_data, bucket_settings.size.w, bucket_settings.size.h)
-        if thumbnail.error:
+        if thumbnail.error or not thumbnail.data:
             self._logger.warning(f"Failed to create thumbnail: {thumbnail.error}")
             return NOT_FOUND_RESPONSE
 

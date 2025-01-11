@@ -6,6 +6,7 @@ from io import BytesIO
 
 from minio import Minio, S3Error
 from minio.commonconfig import ENABLED, Filter
+from minio.helpers import DictType
 from minio.lifecycleconfig import LifecycleConfig, Rule, Expiration
 from urllib3 import BaseHTTPResponse
 
@@ -80,7 +81,7 @@ class StorageClient(ABC):
         pass
 
     @abstractmethod
-    def open_stream(self, directory: str, file_name: str) -> StorageResponse:
+    def open_stream(self, directory: str, file_name: str) -> StorageResponse | None:
         """
         Opens stream to read bytes
         :param directory: Directory
@@ -143,6 +144,7 @@ class _StorageResponse(StorageResponse):
             self._etag = self._etag.replace('"', '')
 
     def __enter__(self) -> Iterable[bytes]:
+        assert self._http_response, "error when access http_response"
         return self._http_response.stream()
 
     def __exit__(self, exc_type, exc_val, exc_tb):
@@ -217,9 +219,12 @@ class S3StorageClient(StorageClient):
     def get_file_stat(self, directory: str, file_name: str) -> StorageFileItem | None:
         try:
             object_stat = self._minio_client.stat_object(bucket_name=directory, object_name=file_name)
-            parent_etag = object_stat.metadata.get(KEY_PARENT_ETAG, None)
-            return StorageFileItem(directory=directory, file_name=file_name, size=object_stat.size,
-                                   content_type=object_stat.content_type, etag=object_stat.etag,
+            if not object_stat:
+                return None
+
+            parent_etag = object_stat.metadata.get(KEY_PARENT_ETAG, None) if object_stat.metadata else None
+            return StorageFileItem(directory=directory, file_name=file_name, size=object_stat.size or 0,
+                                   content_type=object_stat.content_type or "", etag=object_stat.etag or "",
                                    parent_etag=parent_etag)
         except S3Error:
             return None
@@ -235,7 +240,7 @@ class S3StorageClient(StorageClient):
         # seek to the start to put file
         content.seek(0, os.SEEK_SET)
 
-        metadata: dict[str, str] | None = None
+        metadata: DictType | None = None
         if parent_etag:
             metadata = {KEY_PARENT_ETAG: parent_etag}
         result = self._minio_client.put_object(directory, file_name, content, content_length, content_type=content_type,
@@ -243,7 +248,7 @@ class S3StorageClient(StorageClient):
         if reset_content:
             content.seek(0, os.SEEK_SET)
         return StorageFileItem(directory=directory, file_name=result.object_name, content_type=content_type,
-                               size=content_length, etag=result.etag, parent_etag=parent_etag)
+                               size=content_length, etag=result.etag or "", parent_etag=parent_etag)
 
     def load_file(self, directory: str, file_name: str) -> BytesIO | None:
         result = BytesIO()

@@ -1,4 +1,5 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+from typing import Tuple
 
 import pydantic
 import pydantic.networks
@@ -78,7 +79,7 @@ class _AppBaseSettings(BaseSettings):
     log_fmt: str = "{time} | {level}: {extra} {message}"
     """ Logging message format """
 
-    size: ImageSize | None = None
+    size: ImageSize = ImageSize(200, 200)
     """ Thumbnail's default image size, 200x200px be default """
 
     model_config = SettingsConfigDict(env_file=".env", nested_model_default_partial_update=True,
@@ -103,7 +104,7 @@ class AppSettings:
     s3: S3Settings = S3Settings()
     """ S3 or minio connection parameters """
 
-    buckets: dict[str, BucketSettings] = ()
+    buckets: dict[str, BucketSettings] = field(default_factory=lambda: {})
     """ Collection of buckets with thumbnail settings """
 
     source_bucket: str = "images"
@@ -115,7 +116,7 @@ class AppSettings:
     log_fmt: str = "{time} | {level}: {extra} {message}"
     """ Logging message format """
 
-    size: ImageSize | str | None = None
+    size: ImageSize = ImageSize()
     """ Thumbnail's default image size, 200x200px be default """
 
 
@@ -150,7 +151,7 @@ def _parse_size_or_default(source: ImageSize | str | None, default_size: ImageSi
     return source
 
 
-def _parse_path(path: str) -> (str, str | None):
+def _parse_path(path: str) -> Tuple[str, str | None]:
     fragments = [str(t) for t in path.split('/') if t]
     if len(fragments) < 1:
         raise ValueError("Invalid path string")
@@ -161,12 +162,13 @@ def _parse_path(path: str) -> (str, str | None):
     return fragments[0], None
 
 
-def _url_to_s3settings(s3_url: pydantic.networks.HttpUrl) -> (S3Settings, str | None):
-    assert s3_url, "url is required"
+def _url_to_s3settings(s3_url: pydantic.networks.HttpUrl) -> Tuple[S3Settings, str | None]:
+    assert s3_url, "s3_url is required"
+    assert s3_url.path, "s3_url is not set"
     region, source_bucket = _parse_path(s3_url.path)
 
-    return S3Settings(endpoint=f"{s3_url.host}:{s3_url.port}", access_key=s3_url.username,
-                      secret_key=s3_url.password, region=region, trust_cert=s3_url.scheme == 'https',
+    return S3Settings(endpoint=f"{s3_url.host}:{s3_url.port}", access_key=s3_url.username or "",
+                      secret_key=s3_url.password or "", region=region, trust_cert=s3_url.scheme == 'https',
                       use_tsl=s3_url.scheme == 'https'), source_bucket
 
 

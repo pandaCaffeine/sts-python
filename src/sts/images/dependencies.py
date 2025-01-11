@@ -1,7 +1,7 @@
 from functools import lru_cache
-from logging import Logger
 from typing import Annotated
 
+from logging import Logger
 from fastapi.params import Depends
 from loguru import logger
 from minio import Minio
@@ -30,7 +30,7 @@ StorageClientDep = Annotated[StorageClient, Depends(get_storage_client)]
 
 
 def _get_request_logger(bucket: str, file_name: str) -> Logger:
-    return logger.bind(bucket=bucket, file_name=file_name)
+    return logger.bind(bucket=bucket, file_name=file_name)  # type: ignore
 
 
 RequestLoggerDep = Annotated[Logger, Depends(_get_request_logger)]
