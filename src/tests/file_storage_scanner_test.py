@@ -1,4 +1,3 @@
-from pprint import pprint
 from unittest.mock import create_autospec
 
 from sts.config import BucketSettings, ImageSize, BucketsMap
