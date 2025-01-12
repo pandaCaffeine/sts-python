@@ -1,6 +1,7 @@
 import unittest.mock
 from unittest.mock import create_autospec, Mock
 
+import minio.datatypes
 import pytest
 from minio import Minio, S3Error
 from urllib3 import HTTPResponse
@@ -50,6 +51,7 @@ def test_open_stream_returns_none_when_s3_error():
     # assert
     assert not result
 
+
 def test_open_stream_returns_none_when_exception():
     # arrange
     minio_mock = create_autospec(Minio)
@@ -60,6 +62,7 @@ def test_open_stream_returns_none_when_exception():
     # act & assert
     with pytest.raises(ValueError):
         storage_client.open_stream('images', 'icon.png')
+
 
 def test_try_create_dir_does_nothing_if_bucket_exits():
     # arrange
@@ -72,6 +75,7 @@ def test_try_create_dir_does_nothing_if_bucket_exits():
 
     # assert
     assert not result
+
 
 def test_try_create_dir_successful():
     # arrange
@@ -87,3 +91,46 @@ def test_try_create_dir_successful():
     assert result
     minio_mock.make_bucket.assert_called_with('test')
     minio_mock.set_bucket_lifecycle.assert_called_once_with('test', unittest.mock.ANY)
+
+
+def test_get_file_stat_returns_none():
+    # arrange
+    minio_mock = create_autospec(Minio)
+    minio_mock.stat_object.return_value = None
+    storage_client = S3StorageClient(minio_mock)
+
+    # act
+    result = storage_client.get_file_stat('images', 'icon.png')
+
+    # assert
+    assert not result
+
+
+def test_get_file_stat_successful():
+    # arrange
+    fake_minio_object = minio.datatypes.Object('images', 'icon.png', etag=expected_etag, size=1024,
+                                               content_type=expected_content_type)
+    minio_mock = create_autospec(Minio)
+    minio_mock.stat_object.return_value = fake_minio_object
+    storage_client = S3StorageClient(minio_mock)
+
+    # act
+    result = storage_client.get_file_stat('images', 'icon.png')
+
+    # assert
+    assert result
+
+def test_get_file_stat_returns_none_when_s3_error():
+    # arrange
+    minio_mock = create_autospec(Minio)
+    minio_mock.stat_object.side_effect = S3Error('unit-test', 'unit test error', None, None, None,
+                                                response=fake_response)
+    storage_client = S3StorageClient(minio_mock)
+
+    # act
+    result = storage_client.get_file_stat('images', 'icon.png')
+
+    # asser
+    assert result is None
+
+
