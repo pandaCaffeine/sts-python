@@ -1,10 +1,13 @@
+import os
 import unittest.mock
+from io import BytesIO
 from unittest.mock import create_autospec, Mock
 
 import minio.datatypes
 import pytest
 from minio import Minio, S3Error
-from urllib3 import HTTPResponse
+from minio.helpers import ObjectWriteResult
+from urllib3 import HTTPResponse, HTTPHeaderDict
 
 from sts.images.storage_client import S3StorageClient
 
@@ -18,6 +21,11 @@ fake_response = HTTPResponse(body='', headers={
     'etag': f'"{expected_etag}"'
 }, status=200, version=1, version_string='1', reason=None,
                              decode_content=False, request_url='http://minio/images/icon.png')
+
+
+def __read_file(file_name: str) -> BytesIO:
+    with open(file_name, "rb") as file_data:
+        return BytesIO(file_data.read())
 
 
 def test_open_stream_successful():
@@ -120,11 +128,12 @@ def test_get_file_stat_successful():
     # assert
     assert result
 
+
 def test_get_file_stat_returns_none_when_s3_error():
     # arrange
     minio_mock = create_autospec(Minio)
     minio_mock.stat_object.side_effect = S3Error('unit-test', 'unit test error', None, None, None,
-                                                response=fake_response)
+                                                 response=fake_response)
     storage_client = S3StorageClient(minio_mock)
 
     # act
@@ -133,4 +142,75 @@ def test_get_file_stat_returns_none_when_s3_error():
     # asser
     assert result is None
 
+
+@pytest.mark.parametrize('expected_parent_etag', [expected_etag, None])
+def test_put_file_successful(expected_parent_etag: str | None):
+    # arrange
+    expected_bucket_name = 'images-small'
+    expected_object_name = 'icon.png'
+
+    minio_mock = create_autospec(Minio)
+    minio_mock.put_object.return_value = ObjectWriteResult(expected_bucket_name, expected_object_name, None,
+                                                           etag=expected_etag, http_headers=HTTPHeaderDict())
+    storage_client = S3StorageClient(minio_mock)
+    file_memory = __read_file('./test.png')
+    file_memory.seek(0, os.SEEK_END)
+    expected_size = file_memory.tell()
+    file_memory.seek(0, os.SEEK_SET)
+
+    # act
+    result = storage_client.put_file(expected_bucket_name, expected_object_name, file_memory, expected_content_type,
+                                     parent_etag=expected_parent_etag)
+
+    # assert
+    assert result
+    assert result.size == expected_size
+    assert result.directory == expected_bucket_name
+    assert result.file_name == expected_object_name
+    assert result.content_type == expected_content_type
+    assert result.etag == expected_etag
+    assert result.parent_etag == expected_parent_etag
+    assert file_memory.tell() == 0
+
+def test_load_file_returns_none_when_s3_error():
+    # arrange
+    minio_mock = create_autospec(Minio)
+    minio_mock.get_object.side_effect = S3Error('unit-test', 'unit test error', None, None, None,
+                                                 response=fake_response)
+    storage_client = S3StorageClient(minio_mock)
+
+    # act
+    result = storage_client.load_file('images', 'icon.png')
+
+    # assert
+    assert not result
+
+def test_load_file_fails_when_error():
+    # arrange
+    minio_mock = create_autospec(Minio)
+    minio_mock.get_object.side_effect = ValueError('unit test error')
+    storage_client = S3StorageClient(minio_mock)
+
+    # act & assert
+    with pytest.raises(ValueError):
+        storage_client.load_file('images', 'icon.png')
+
+def test_load_file_successful():
+    # arrange
+    fake_file = __read_file('./test.png')
+    expected_size = fake_file.tell()
+    fake_file.seek(0, os.SEEK_SET)
+
+    minio_mock = create_autospec(Minio)
+    minio_mock.get_object.return_value = HTTPResponse(fake_file, None, 200, 1, 'HTTP/1.0',
+                                                      None)
+    storage_client = S3StorageClient(minio_mock)
+
+    # act
+    result = storage_client.load_file('images', 'icon.png')
+
+    # assert
+    assert result
+    result.seek(0, os.SEEK_END)
+    assert result.tell() == expected_size
 
