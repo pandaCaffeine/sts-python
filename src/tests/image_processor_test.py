@@ -10,7 +10,7 @@ def __read_file(file_name: str) -> BytesIO:
 
 
 def test_resize_image() -> None:
-    file_data = __read_file("./src/tests/test.png")
+    file_data = __read_file("./test.png")
     resize_result = resize_image(file_data, 100, 100)
 
     assert not resize_result.error
