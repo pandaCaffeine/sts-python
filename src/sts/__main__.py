@@ -5,7 +5,7 @@ from fastapi import FastAPI
 from loguru import logger
 
 from sts import __version__
-from sts.config import app_settings
+from sts.config import get_app_settings
 from sts.healthcheck.dependencies import HealthCheckServiceDep
 from sts.healthcheck.routes import hc_route
 from sts.images.buckets_service import BucketsService
@@ -14,6 +14,7 @@ from sts.images.routes import images_router
 
 
 def __configure_logger():
+    app_settings = get_app_settings()
     logger.remove()
     logger.add(sys.stdout, level=app_settings.log_level, format=app_settings.log_fmt)
     logger.add(sys.stderr, level="ERROR", format=app_settings.log_fmt)
@@ -30,6 +31,7 @@ def __create_fastapi_app() -> FastAPI:
 
 def __start_app():
     l = logger.bind(source="core")
+    app_settings = get_app_settings()
 
     storage_client = get_storage_client()
     buckets_service = BucketsService(app_settings, storage_client, l)

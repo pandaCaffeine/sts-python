@@ -1,9 +1,7 @@
 from dataclasses import dataclass, field
-from typing import Tuple
+from typing import Tuple, Any
 
-import pydantic
-import pydantic.networks
-from pydantic import BaseModel, HttpUrl
+from pydantic import BaseModel, HttpUrl, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict, PydanticBaseSettingsSource, JsonConfigSettingsSource
 
 
@@ -16,30 +14,15 @@ class ImageSize:
     """ Image height, default value is 200px """
 
 
-class _BucketSettings(BaseModel):
-    size: ImageSize | str | None = None
+class BucketSettings(BaseModel):
+    size: ImageSize = ImageSize(200, 200)
     """ Thumbnail's size in the bucket, 200x200px by default """
 
     life_time_days: int = 30
     """ How many days files in the bucket live, in days. 30 days by default. Set to zero, to make life time infinity """
-
-    source_bucket: str | None = None
-    """ Overrides default source bucket, can be None """
-
-    alias: str | None = None
-    """ Optional alias for the bucket, can be used for alternative routes """
-
-
-@dataclass(frozen=True, slots=True)
-class BucketSettings:
-    size: ImageSize
-    """ Thumbnail's size in the bucket, 200x200px by default """
 
     source_bucket: str
     """ Overrides default source bucket, can be None """
-
-    life_time_days: int = 30
-    """ How many days files in the bucket live, in days. 30 days by default. Set to zero, to make life time infinity """
 
     alias: str | None = None
     """ Optional alias for the bucket, can be used for alternative routes """
@@ -61,13 +44,48 @@ class S3Settings:
     """ Set True to trust secure certificate and do not validate it, True by default """
 
 
-class _AppBaseSettings(BaseSettings):
+def _parse_path(path: str) -> Tuple[str, str | None]:
+    fragments = [str(t) for t in path.split('/') if t]
+    if len(fragments) < 1:
+        raise ValueError(f"Url path '{path}' doesn't contain region")
+
+    if len(fragments) > 1:
+        return fragments[0], fragments[1]
+
+    return fragments[0], None
+
+
+def _parse_s3_settings(value: str) -> tuple[S3Settings, str | None]:
+    s3_url = HttpUrl(value)
+    if not s3_url.path or not len(s3_url.path):
+        raise ValueError(f"Value '{value}' was not recognized as a valid S3 connection string")
+
+    region, source_bucket = _parse_path(s3_url.path)
+    return S3Settings(endpoint=f"{s3_url.host}:{s3_url.port}", access_key=s3_url.username or "",
+                      secret_key=s3_url.password or "", region=region, trust_cert=s3_url.scheme == 'https',
+                      use_tsl=s3_url.scheme == 'https'), source_bucket
+
+
+def _parse_size(source: str) -> ImageSize:
+    """ Converts string {w}x{h} into ImageSize object """
+    assert source and len(source) > 0, "source is required"
+    try:
+        str_parts = [int(p) for p in source.split('x') if p]
+        if len(str_parts) == 2:
+            return ImageSize(w=str_parts[0], h=str_parts[1])
+    except ValueError:
+        pass
+
+    raise ValueError(f"Couldn't parse source string '{source}' into ImageSize")
+
+
+class AppSettings(BaseSettings):
     """ Application settings """
 
-    s3: S3Settings | HttpUrl = S3Settings()
+    s3: S3Settings = S3Settings()
     """ S3 or minio connection parameters """
 
-    buckets: dict[str, _BucketSettings] | None = None
+    buckets: dict[str, BucketSettings] = field(default_factory=dict)
     """ Collection of buckets with thumbnail settings """
 
     source_bucket: str | None = None
@@ -86,6 +104,43 @@ class _AppBaseSettings(BaseSettings):
                                       env_nested_delimiter="__", extra='ignore', case_sensitive=False,
                                       json_file="config.json")
 
+    @model_validator(mode='before')
+    @classmethod
+    def before_validator(cls, data: Any) -> Any:
+        if isinstance(data, dict):
+            raw_dict = dict(data)
+
+            if isinstance(raw_dict.get('s3', None), str):
+                s3_str = str(raw_dict['s3'])
+                s3_settings, source_bucket = _parse_s3_settings(s3_str)
+                raw_dict['s3'] = s3_settings
+                raw_dict['source_bucket'] = raw_dict.get('source_bucket', source_bucket)
+
+            source_bucket = str(raw_dict.get('source_bucket', None))
+            default_size = raw_dict.get('size', None)
+            if isinstance(default_size, str):
+                default_size = _parse_size(str(default_size))
+                raw_dict['size'] = default_size
+
+            if isinstance(raw_dict.get('buckets', None), dict):
+                buckets_dict = dict(raw_dict['buckets'])
+                for key, b in buckets_dict.items():
+                    bucket_obj = dict(b)
+                    bucket_obj['source_bucket'] = bucket_obj.get('source_bucket', source_bucket)
+                    if not bucket_obj['source_bucket']:
+                        raise ValueError(f"For bucket '{key}' source_bucket was not set, check configuration")
+
+                    bucket_size = bucket_obj.get('size', default_size)
+                    if isinstance(bucket_size, str):
+                        bucket_size = _parse_size(str(bucket_size))
+                        bucket_obj['size'] = bucket_size
+                    buckets_dict[key] = bucket_obj
+
+                raw_dict['buckets'] = buckets_dict
+            data = raw_dict
+
+        return data
+
     @classmethod
     def settings_customise_sources(
             cls,
@@ -100,27 +155,6 @@ class _AppBaseSettings(BaseSettings):
 
 
 @dataclass(frozen=True, slots=True)
-class AppSettings:
-    s3: S3Settings = S3Settings()
-    """ S3 or minio connection parameters """
-
-    buckets: dict[str, BucketSettings] = field(default_factory=lambda: {})
-    """ Collection of buckets with thumbnail settings """
-
-    source_bucket: str = "images"
-    """ Bucket with source images to process """
-
-    log_level: str = "INFO"
-    """ Logging level """
-
-    log_fmt: str = "{time} | {level}: {extra} {message}"
-    """ Logging message format """
-
-    size: ImageSize = ImageSize()
-    """ Thumbnail's default image size, 200x200px be default """
-
-
-@dataclass(frozen=True, slots=True)
 class BucketsMap:
     source_bucket: str
     buckets: dict[str, BucketSettings]
@@ -128,83 +162,8 @@ class BucketsMap:
     alias_map: dict[str, str]
 
 
-def _parse_size(source: str) -> ImageSize:
-    """ Converts string {w}x{h} into ImageSize object """
-    assert source and len(source) > 0, "source is required"
-    try:
-        str_parts = [int(p) for p in source.split('x') if p]
-        if len(str_parts) == 2:
-            return ImageSize(w=str_parts[0], h=str_parts[1])
-    except ValueError:
-        pass
-
-    raise ValueError(f"Couldn't parse source string '{source}' into ImageSize")
-
-
-def _parse_size_or_default(source: ImageSize | str | None, default_size: ImageSize) -> ImageSize:
-    if not source:
-        return default_size
-
-    if isinstance(source, str):
-        return _parse_size(source)
-
-    return source
-
-
-def _parse_path(path: str) -> Tuple[str, str | None]:
-    fragments = [str(t) for t in path.split('/') if t]
-    if len(fragments) < 1:
-        raise ValueError("Invalid path string")
-
-    if len(fragments) > 1:
-        return fragments[0], fragments[1]
-
-    return fragments[0], None
-
-
-def _url_to_s3settings(s3_url: pydantic.networks.HttpUrl) -> Tuple[S3Settings, str | None]:
-    assert s3_url, "s3_url is required"
-    assert s3_url.path, "s3_url is not set"
-    region, source_bucket = _parse_path(s3_url.path)
-
-    return S3Settings(endpoint=f"{s3_url.host}:{s3_url.port}", access_key=s3_url.username or "",
-                      secret_key=s3_url.password or "", region=region, trust_cert=s3_url.scheme == 'https',
-                      use_tsl=s3_url.scheme == 'https'), source_bucket
-
-
-def _base_app_settings_to_app_settings(base_settings: _AppBaseSettings) -> AppSettings:
-    source_bucket = base_settings.source_bucket
-    s3: S3Settings
-    url_source_bucket: str | None = None
-    if isinstance(base_settings.s3, pydantic.networks.HttpUrl):
-        s3, url_source_bucket = _url_to_s3settings(base_settings.s3)
-    else:
-        s3 = base_settings.s3
-    source_bucket = url_source_bucket or source_bucket
-    if not source_bucket:
-        raise ValueError("Source bucket was not configured, check configuration")
-
-    default_size = base_settings.size
-    if isinstance(default_size, str):
-        default_size = _parse_size(default_size)
-
-    if not base_settings.buckets:
-        raise ValueError("Buckets were not configure, check configuration")
-
-    parsed_buckets = dict[str, BucketSettings]()
-    for k, v in base_settings.buckets.items():
-        bucket_settings = BucketSettings(size=_parse_size_or_default(v.size, default_size),
-                                         source_bucket=v.source_bucket or source_bucket,
-                                         life_time_days=v.life_time_days, alias=v.alias)
-        parsed_buckets[k] = bucket_settings
-
-    return AppSettings(s3=s3, buckets=parsed_buckets, source_bucket=source_bucket,
-                       log_level=base_settings.log_level, log_fmt=base_settings.log_fmt, size=default_size)
-
-
 def _get_buckets_map(settings: AppSettings) -> BucketsMap:
     source_buckets = [s.source_bucket for s in settings.buckets.values() if s.source_bucket is not None]
-    source_buckets.append(settings.source_bucket)
 
     alias_map = dict[str, str]()
     buckets_dict: dict[str, BucketSettings] = dict[str, BucketSettings]()
@@ -214,13 +173,29 @@ def _get_buckets_map(settings: AppSettings) -> BucketsMap:
             alias_map[bucket_cfg.alias] = bucket_name
 
     # source bucket cfg to map
-    source_bucket_cfg = BucketSettings(source_bucket=settings.source_bucket, size=settings.size)
-    buckets_dict[settings.source_bucket] = source_bucket_cfg
+    base_source_bucket = settings.source_bucket or source_buckets[0]
+    source_bucket_cfg = BucketSettings(source_bucket=base_source_bucket, size=settings.size)
+    buckets_dict[base_source_bucket] = source_bucket_cfg
+    if not settings.source_bucket:
+        source_buckets.append(base_source_bucket)
 
-    return BucketsMap(alias_map=alias_map, buckets=buckets_dict, source_bucket=settings.source_bucket,
+    return BucketsMap(alias_map=alias_map, buckets=buckets_dict, source_bucket=base_source_bucket,
                       all_source_buckets=set(source_buckets))
 
 
-if __name__ == 'main':
-    app_settings: AppSettings = _base_app_settings_to_app_settings(_AppBaseSettings())
-    bucket_map: BucketsMap = _get_buckets_map(app_settings)
+_app_settings: AppSettings | None = None
+_buckets_map: BucketsMap | None = None
+
+
+def get_app_settings() -> AppSettings:
+    global _app_settings
+    if not _app_settings:
+        _app_settings = AppSettings()
+    return _app_settings
+
+
+def get_buckets_map() -> BucketsMap:
+    global _buckets_map
+    if not _buckets_map:
+        _buckets_map = _get_buckets_map(get_app_settings())
+    return _buckets_map
