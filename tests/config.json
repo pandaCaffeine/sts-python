@@ -1,0 +1,22 @@
+{
+  "buckets": {
+    "thumbnail-small": {
+      "size": {
+        "w": 300,
+        "h": 300
+      },
+      "alias": "small"
+    },
+    "thumbnail-medium": {
+      "size": "500x500",
+      "alias": "medium",
+      "source_bucket": "images"
+    },
+    "thumbnail": {
+      "life_time_days": 10
+    }
+  },
+  "s3": "http://MINIO_AK:MINIO_SK@localhost:9000/eu-west-1/images",
+  "size": "100x100",
+  "source_bucket": "pictures"
+}
