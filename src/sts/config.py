@@ -1,7 +1,8 @@
-from dataclasses import dataclass, field
+from dataclasses import field
 from typing import Tuple, Any
 
 from pydantic import BaseModel, HttpUrl, model_validator
+from pydantic.dataclasses import dataclass
 from pydantic_settings import BaseSettings, SettingsConfigDict, PydanticBaseSettingsSource, JsonConfigSettingsSource
 
 
@@ -107,6 +108,7 @@ class AppSettings(BaseSettings):
     @model_validator(mode='before')
     @classmethod
     def before_validator(cls, data: Any) -> Any:
+        result = data
         if isinstance(data, dict):
             raw_dict = dict(data)
 
@@ -125,21 +127,30 @@ class AppSettings(BaseSettings):
             if isinstance(raw_dict.get('buckets', None), dict):
                 buckets_dict = dict(raw_dict['buckets'])
                 for key, b in buckets_dict.items():
+                    if not isinstance(b, dict):
+                        continue
+
                     bucket_obj = dict(b)
                     bucket_obj['source_bucket'] = bucket_obj.get('source_bucket', source_bucket)
                     if not bucket_obj['source_bucket']:
-                        raise ValueError(f"For bucket '{key}' source_bucket was not set, check configuration")
+                        raise ValueError(
+                            f"For bucket '{key}' source_bucket was not set, check configuration or "
+                            "set root 'source_bucket' as fallback value.")
 
                     bucket_size = bucket_obj.get('size', default_size)
                     if isinstance(bucket_size, str):
                         bucket_size = _parse_size(str(bucket_size))
-                        bucket_obj['size'] = bucket_size
+
+                    bucket_obj['size'] = bucket_size
+                    if not bucket_obj['size']:
+                        raise ValueError(f"For bucket '{key}' size was not set, check configuration or "
+                                         "set root 'size' as fallback value.")
                     buckets_dict[key] = bucket_obj
 
                 raw_dict['buckets'] = buckets_dict
-            data = raw_dict
+            result = raw_dict
 
-        return data
+        return result
 
     @classmethod
     def settings_customise_sources(
