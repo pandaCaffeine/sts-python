@@ -1,4 +1,32 @@
-from sts.config import get_app_settings, get_buckets_map, ImageSize
+from sts.config import get_app_settings, get_buckets_map, ImageSize, BucketSettings
+
+
+def _assert_that_bucket_settings_are_equal(expected: BucketSettings, actual: BucketSettings):
+    assert expected.alias == actual.alias
+    assert expected.source_bucket == actual.source_bucket
+    assert expected.life_time_days == actual.life_time_days
+    assert expected.size == actual.size
+
+
+_expected_thumbnail_small = BucketSettings(alias='small',
+                                           size=ImageSize(300, 300),
+                                           life_time_days=30,
+                                           source_bucket='pictures')
+
+_expected_thumbnail_medium = BucketSettings(alias='medium',
+                                            size=ImageSize(500, 500),
+                                            life_time_days=30,
+                                            source_bucket='images')
+
+_expected_thumbnail = BucketSettings(alias=None,
+                                     size=ImageSize(100, 100),
+                                     life_time_days=10,
+                                     source_bucket='pictures')
+
+_expected_pictures_small = BucketSettings(alias='p',
+                                          size=ImageSize(50, 50),
+                                          source_bucket='items',
+                                          life_time_days=30)
 
 
 def test_read():
@@ -22,38 +50,19 @@ def test_read():
 
     # assert thumbnail-small
     bucket_settings = app_settings.buckets['thumbnail-small']
-    assert bucket_settings
-    assert bucket_settings.alias == 'small'
-    assert bucket_settings.source_bucket == 'pictures'
-    assert bucket_settings.life_time_days == 30
-    assert bucket_settings.size.w == 300
-    assert bucket_settings.size.h == 300
+    _assert_that_bucket_settings_are_equal(_expected_thumbnail_small, bucket_settings)
 
     # assert thumbnail-medium
     bucket_settings = app_settings.buckets['thumbnail-medium']
-    assert bucket_settings
-    assert bucket_settings.alias == 'medium'
-    assert bucket_settings.source_bucket == 'images'
-    assert bucket_settings.life_time_days == 30
-    assert bucket_settings.size.w == 500
-    assert bucket_settings.size.h == 500
+    _assert_that_bucket_settings_are_equal(_expected_thumbnail_medium, bucket_settings)
 
     # assert thumbnail
     bucket_settings = app_settings.buckets['thumbnail']
-    assert bucket_settings
-    assert not bucket_settings.alias
-    assert bucket_settings.source_bucket == 'pictures'
-    assert bucket_settings.life_time_days == 10
-    assert bucket_settings.size.w == 100
-    assert bucket_settings.size.h == 100
+    _assert_that_bucket_settings_are_equal(_expected_thumbnail, bucket_settings)
 
     # assert pictures-small
     bucket_settings = app_settings.buckets['pictures-small']
-    assert bucket_settings
-    assert bucket_settings.alias == 'p'
-    assert bucket_settings.source_bucket == 'items'
-    assert bucket_settings.life_time_days == 30
-    assert bucket_settings.size == ImageSize(50, 50)
+    _assert_that_bucket_settings_are_equal(_expected_pictures_small, bucket_settings)
 
 
 def test_buckets_map():
@@ -68,31 +77,17 @@ def test_buckets_map():
 
     # assert source bucket
     bucket_settings = buckets_map.buckets['pictures']
-    assert bucket_settings.source_bucket == 'pictures'
-    assert bucket_settings.size == ImageSize(100, 100)
+    _assert_that_bucket_settings_are_equal(BucketSettings(source_bucket='pictures', size=ImageSize(100, 100)),
+                                           bucket_settings)
 
     # assert thumbnail-small bucket
     bucket_settings = buckets_map.buckets['thumbnail-small']
-    assert bucket_settings.alias == 'small'
-    assert bucket_settings.source_bucket == 'pictures'
-    assert bucket_settings.life_time_days == 30
-    assert bucket_settings.size.w == 300
-    assert bucket_settings.size.h == 300
+    _assert_that_bucket_settings_are_equal(_expected_thumbnail_small, bucket_settings)
 
     # assert thumbnail-medium
     bucket_settings = buckets_map.buckets['thumbnail-medium']
-    assert bucket_settings
-    assert bucket_settings.alias == 'medium'
-    assert bucket_settings.source_bucket == 'images'
-    assert bucket_settings.life_time_days == 30
-    assert bucket_settings.size.w == 500
-    assert bucket_settings.size.h == 500
+    _assert_that_bucket_settings_are_equal(_expected_thumbnail_medium, bucket_settings)
 
     # assert thumbnail
     bucket_settings = buckets_map.buckets['thumbnail']
-    assert bucket_settings
-    assert not bucket_settings.alias
-    assert bucket_settings.source_bucket == 'pictures'
-    assert bucket_settings.life_time_days == 10
-    assert bucket_settings.size.w == 100
-    assert bucket_settings.size.h == 100
+    _assert_that_bucket_settings_are_equal(_expected_thumbnail, bucket_settings)
