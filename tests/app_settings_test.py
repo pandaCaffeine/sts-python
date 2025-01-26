@@ -47,6 +47,15 @@ def test_read():
     assert bucket_settings.size.w == 100
     assert bucket_settings.size.h == 100
 
+    # assert pictures-small
+    bucket_settings = app_settings.buckets['pictures-small']
+    assert bucket_settings
+    assert bucket_settings.alias == 'p'
+    assert bucket_settings.source_bucket == 'items'
+    assert bucket_settings.life_time_days == 30
+    assert bucket_settings.size == ImageSize(50, 50)
+
+
 def test_buckets_map():
     # arrange & act
     buckets_map = get_buckets_map()
@@ -54,8 +63,8 @@ def test_buckets_map():
     # assert
     assert buckets_map
     assert buckets_map.source_bucket == 'pictures'
-    assert buckets_map.all_source_buckets == {'pictures', 'images'}
-    assert buckets_map.alias_map == { 'small': 'thumbnail-small', 'medium': 'thumbnail-medium' }
+    assert buckets_map.all_source_buckets == {'pictures', 'images', 'items'}
+    assert buckets_map.alias_map == {'small': 'thumbnail-small', 'medium': 'thumbnail-medium', 'p': 'pictures-small'}
 
     # assert source bucket
     bucket_settings = buckets_map.buckets['pictures']
@@ -87,8 +96,3 @@ def test_buckets_map():
     assert bucket_settings.life_time_days == 10
     assert bucket_settings.size.w == 100
     assert bucket_settings.size.h == 100
-
-
-
-
-

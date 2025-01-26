@@ -4,6 +4,7 @@ from typing import Tuple, Any
 from pydantic import BaseModel, HttpUrl, model_validator
 from pydantic.dataclasses import dataclass
 from pydantic_settings import BaseSettings, SettingsConfigDict, PydanticBaseSettingsSource, JsonConfigSettingsSource
+from urllib import parse
 
 
 @dataclass(frozen=True, slots=True)
@@ -43,6 +44,15 @@ class S3Settings:
     """ Flag to use secure connection, False by default """
     trust_cert: bool = True
     """ Set True to trust secure certificate and do not validate it, True by default """
+
+
+def _parse_bucket_settings(s: str | None) -> dict | None:
+    if not s:
+        return None
+
+    raw_values = parse.parse_qs(s)
+    raw_dict = {k: v[0] for k, v in raw_values.items()}
+    return raw_dict
 
 
 def _parse_path(path: str) -> Tuple[str, str | None]:
@@ -127,6 +137,9 @@ class AppSettings(BaseSettings):
             if isinstance(raw_dict.get('buckets', None), dict):
                 buckets_dict = dict(raw_dict['buckets'])
                 for key, b in buckets_dict.items():
+                    if isinstance(b, str):
+                        b = _parse_bucket_settings(str(b))
+
                     if not isinstance(b, dict):
                         continue
 
