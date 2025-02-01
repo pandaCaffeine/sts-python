@@ -40,10 +40,10 @@ def test_file_storage_use_source_file():
 def test_file_storage_file_found():
     def side_effect(*args, **kwargs):
         if args[1] == 'icon.png' and args[0] == 'images':
-            return StorageFileItem(file_name='icon.png', etag='valid', directory='images', size=1, parent_etag=None,
+            return StorageFileItem(file_name='icon.png', etag='valid', bucket='images', size=1, parent_etag=None,
                                    content_type='image/png')
         else:
-            return StorageFileItem(file_name='icon.png', etag='valid-small', directory='thumbnail-small', size=1,
+            return StorageFileItem(file_name='icon.png', etag='valid-small', bucket='thumbnail-small', size=1,
                                    parent_etag='valid',
                                    content_type='image/png')
 
@@ -57,10 +57,10 @@ def test_file_storage_file_found():
 def test_file_storage_create_new():
     def side_effect(*args):
         if args[1] == 'icon.png' and args[0] == 'images':
-            return StorageFileItem(file_name='icon.png', etag='valid', directory='images', size=1, parent_etag=None,
+            return StorageFileItem(file_name='icon.png', etag='valid', bucket='images', size=1, parent_etag=None,
                                    content_type='image/png')
         else:
-            return StorageFileItem(file_name='icon.png', etag='valid-small', directory='thumbnail-small', size=1,
+            return StorageFileItem(file_name='icon.png', etag='valid-small', bucket='thumbnail-small', size=1,
                                    parent_etag='invalid',
                                    content_type='image/png')
 

@@ -79,7 +79,7 @@ def test_try_create_dir_does_nothing_if_bucket_exits():
     storage_client = S3StorageClient(minio_mock)
 
     # act
-    result = storage_client.try_create_dir('test', 30)
+    result = storage_client.try_create_bucket('test', 30)
 
     # assert
     assert not result
@@ -93,7 +93,7 @@ def test_try_create_dir_successful():
     storage_client = S3StorageClient(minio_mock)
 
     # act
-    result = storage_client.try_create_dir('test', 30)
+    result = storage_client.try_create_bucket('test', 30)
 
     # assert
     assert result
@@ -165,7 +165,7 @@ def test_put_file_successful(expected_parent_etag: str | None):
     # assert
     assert result
     assert result.size == expected_size
-    assert result.directory == expected_bucket_name
+    assert result.bucket == expected_bucket_name
     assert result.file_name == expected_object_name
     assert result.content_type == _expected_content_type
     assert result.etag == _expected_etag
