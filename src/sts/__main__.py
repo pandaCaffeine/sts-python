@@ -47,7 +47,7 @@ def __start_app():
                 host=app_settings.host,
                 port=app_settings.port,
                 proxy_headers=app_settings.proxy_headers,
-                log_level=app_settings.log_level,
+                log_level=app_settings.log_level.lower(),
                 workers=app_settings.workers,
                 limit_concurrency=app_settings.limit_concurrency,
                 limit_max_requests=app_settings.limit_max_requests,
