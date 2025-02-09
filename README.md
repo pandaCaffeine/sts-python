@@ -98,6 +98,27 @@ environment:
 * `log_level` - logging level for `loguru`.
 * `log_fmt` - logging pattern for `loguru`.
 
+##### uvicorn specific settings
+You can set uvicorn specific settings in `uvicorn` section, default value is:
+```json
+{
+  "uvicorn": {
+    "host": "0.0.0.0",
+    "port": 80,
+    "proxy_headers": true
+  }
+}
+```
+You can set all settings according to the official docs https://www.uvicorn.org/settings/.
+
+In most cases you may want to set following uvicorn settings:
+* `host` - bind socket to this host. Use `0.0.0.0` to make the application available on your local network. IPv6 addresses are supported, for example: `::`. Default: `0.0.0.0` (overridden in sts).
+* `port` - bind to a socket with this port. Default: `80` (overridden on sts).
+* `workers` - use multiple worker processes. Defaults to the `$WEB_CONCURRENCY` environment variable if available, or 1.
+* `access_log` - enables access log. Use `False` to disable access log only, without changing log level  Default: `True`.
+* `log_level` - set the log level. Options: `critical`, `error`, `warning`, `info`, `debug`, `trace`. Default: `info`.
+
+
 #### S3 configs
 
 * `endpoint` - address to `minio`.
@@ -202,7 +223,7 @@ There are no specific deadlines at this time, but we have some ideas for future 
 
 1. ✅ version 1.1: source file first - return 404 if source file was deleted, recreate thumbnail file if source file was
    changed
-2. 🔳 version 1.2: make configuration simpler
+2. ✅ version 1.2: make configuration simpler
 3. 🔳 version 1.3: file configuration for thumbnails - ability to choose thumbnails file format and some options like
    quality
 4. 🔳 version 2.0: refactoring, fixes, code cleanup

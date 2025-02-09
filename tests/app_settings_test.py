@@ -91,3 +91,14 @@ def test_buckets_map():
     # assert thumbnail
     bucket_settings = buckets_map.buckets['thumbnail']
     _assert_that_bucket_settings_are_equal(_expected_thumbnail, bucket_settings)
+
+def test_uvicorn_defaults():
+    # arrange & act
+    app_settings = get_app_settings()
+
+    # assert
+    assert app_settings.uvicorn
+    assert app_settings.uvicorn['host'] == '0.0.0.0'
+    assert app_settings.uvicorn['port'] == 80
+    assert app_settings.uvicorn['proxy_headers'] == True
+    assert app_settings.uvicorn['workers'] == 4

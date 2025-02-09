@@ -1,7 +1,6 @@
-from typing import Tuple, Any, Optional, Annotated
+from typing import Tuple, Any
 from urllib import parse
 
-import pydantic
 from pydantic import BaseModel, HttpUrl, model_validator, Field
 from pydantic.dataclasses import dataclass
 from pydantic_settings import BaseSettings, SettingsConfigDict, PydanticBaseSettingsSource, JsonConfigSettingsSource
@@ -99,7 +98,7 @@ class AppSettings(BaseSettings):
     port: int = Field(80, frozen=True)
     """ Web server port, 80 is default """
 
-    workers: Optional[Annotated[int, Field(ge=1, frozen=True)]]
+    workers: int | None = Field(None, ge=1)
     """ Number of workers, default is None. If not set uses $WEB_CONCURRENCY environment variable if available, or 1 """
 
     s3: S3Settings = S3Settings()
@@ -120,7 +119,7 @@ class AppSettings(BaseSettings):
     access_log: bool = Field(True, frozen=True)
     """ Enable or disable access logs, without changing log level. Default is True. """
 
-    size: ImageSize = Field(ImageSize)
+    size: ImageSize = Field(ImageSize())
     """ Thumbnail's default image size, 200x200px be default """
 
     limit_concurrency: int | None = Field(None, frozen=True)
@@ -145,6 +144,8 @@ class AppSettings(BaseSettings):
     Enable/Disable X-Forwarded-Proto, X-Forwarded-For to populate remote address info.
     """
 
+    uvicorn: dict[str, Any] = Field(default_factory=lambda: { 'host': '0.0.0.0', 'port': 80, 'proxy_headers': True })
+
     model_config = SettingsConfigDict(env_file=".env", nested_model_default_partial_update=True,
                                       env_nested_delimiter="__", extra='ignore', case_sensitive=False,
                                       json_file="config.json")
@@ -155,6 +156,11 @@ class AppSettings(BaseSettings):
         result = data
         if isinstance(data, dict):
             raw_dict = dict(data)
+
+            uvicorn_settings = raw_dict.setdefault('uvicorn', dict[str, Any])
+            uvicorn_settings.setdefault('host', '0.0.0.0')
+            uvicorn_settings.setdefault('port', 80),
+            uvicorn_settings.setdefault('proxy_headers', True)
 
             if isinstance(raw_dict.get('s3', None), str):
                 s3_str = str(raw_dict['s3'])

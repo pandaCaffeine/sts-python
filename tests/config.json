@@ -19,5 +19,8 @@
   },
   "s3": "http://MINIO_AK:MINIO_SK@localhost:9000/eu-west-1/images",
   "size": "100x100",
-  "source_bucket": "pictures"
+  "source_bucket": "pictures",
+  "uvicorn": {
+    "workers": 4
+  }
 }
