@@ -124,7 +124,7 @@ class AppSettings(BaseSettings):
         if isinstance(data, dict):
             raw_dict = dict(data)
 
-            uvicorn_settings = raw_dict.setdefault('uvicorn', dict[str, Any])
+            uvicorn_settings = raw_dict.setdefault('uvicorn', dict[str, Any]())
             uvicorn_settings.setdefault('host', '0.0.0.0')
             uvicorn_settings.setdefault('port', 80),
             uvicorn_settings.setdefault('proxy_headers', True)
