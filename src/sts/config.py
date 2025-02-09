@@ -92,15 +92,6 @@ def _parse_size(source: str) -> ImageSize:
 class AppSettings(BaseSettings):
     """ Application settings """
 
-    host: str = Field('0.0.0.0', frozen=True)
-    """ Web server host, 0.0.0.0 is default value """
-
-    port: int = Field(80, frozen=True)
-    """ Web server port, 80 is default """
-
-    workers: int | None = Field(None, ge=1)
-    """ Number of workers, default is None. If not set uses $WEB_CONCURRENCY environment variable if available, or 1 """
-
     s3: S3Settings = S3Settings()
     """ S3 or minio connection parameters """
 
@@ -116,35 +107,11 @@ class AppSettings(BaseSettings):
     log_fmt: str = "{time} | {level}: {extra} {message}"
     """ Logging message format """
 
-    access_log: bool = Field(True, frozen=True)
-    """ Enable or disable access logs, without changing log level. Default is True. """
-
     size: ImageSize = Field(ImageSize())
     """ Thumbnail's default image size, 200x200px be default """
 
-    limit_concurrency: int | None = Field(None, frozen=True)
-    """
-    Maximum number of concurrent connections or tasks to allow, before issuing HTTP 503 responses.
-    Useful for ensuring known memory usage patterns even under over-resourced loads. Default is None.
-    """
-
-    limit_max_requests: int | None = Field(None, frozen=True)
-    """
-    Maximum number of requests to service before terminating the process. Useful when running together with 
-    a process manager, for preventing memory leaks from impacting long-running processes. Default is None.
-    """
-
-    backlog: int = Field(2048, frozen=True)
-    """
-    Maximum number of connections to hold in backlog. Relevant for heavy incoming traffic. Default: 2048
-    """
-
-    proxy_headers: bool = Field(True, frozen=True)
-    """
-    Enable/Disable X-Forwarded-Proto, X-Forwarded-For to populate remote address info.
-    """
-
-    uvicorn: dict[str, Any] = Field(default_factory=lambda: { 'host': '0.0.0.0', 'port': 80, 'proxy_headers': True })
+    uvicorn: dict[str, Any] = Field(default_factory=dict[str, Any])
+    """ uvicorn specific settings """
 
     model_config = SettingsConfigDict(env_file=".env", nested_model_default_partial_update=True,
                                       env_nested_delimiter="__", extra='ignore', case_sensitive=False,
