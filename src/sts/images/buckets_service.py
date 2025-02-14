@@ -19,7 +19,7 @@ class BucketsService:
 
     def _create_bucket(self, bucket_name: str, life_time_days: int) -> BucketStatus:
         try:
-            bucket_created = self._storage_client.try_create_dir(bucket_name, life_time_days)
+            bucket_created = self._storage_client.try_create_bucket(bucket_name, life_time_days)
             if bucket_created:
                 self._logger.info(
                     f"Bucket {bucket_name} was created with life time in {life_time_days} days (zero days means infinity)")

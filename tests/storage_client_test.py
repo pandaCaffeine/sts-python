@@ -79,7 +79,7 @@ def test_try_create_dir_does_nothing_if_bucket_exits():
     storage_client = S3StorageClient(minio_mock)
 
     # act
-    result = storage_client.try_create_dir('test', 30)
+    result = storage_client.try_create_bucket('test', 30)
 
     # assert
     assert not result
@@ -93,7 +93,7 @@ def test_try_create_dir_successful():
     storage_client = S3StorageClient(minio_mock)
 
     # act
-    result = storage_client.try_create_dir('test', 30)
+    result = storage_client.try_create_bucket('test', 30)
 
     # assert
     assert result
@@ -153,7 +153,7 @@ def test_put_file_successful(expected_parent_etag: str | None):
     minio_mock.put_object.return_value = ObjectWriteResult(expected_bucket_name, expected_object_name, None,
                                                            etag=_expected_etag, http_headers=HTTPHeaderDict())
     storage_client = S3StorageClient(minio_mock)
-    file_memory = __read_file('./test.png')
+    file_memory = __read_file('test.png')
     file_memory.seek(0, os.SEEK_END)
     expected_size = file_memory.tell()
     file_memory.seek(0, os.SEEK_SET)
@@ -165,7 +165,7 @@ def test_put_file_successful(expected_parent_etag: str | None):
     # assert
     assert result
     assert result.size == expected_size
-    assert result.directory == expected_bucket_name
+    assert result.bucket == expected_bucket_name
     assert result.file_name == expected_object_name
     assert result.content_type == _expected_content_type
     assert result.etag == _expected_etag
@@ -197,7 +197,7 @@ def test_load_file_fails_when_error():
 
 def test_load_file_successful():
     # arrange
-    fake_file = __read_file('./test.png')
+    fake_file = __read_file('test.png')
     expected_size = fake_file.tell()
     fake_file.seek(0, os.SEEK_SET)
 

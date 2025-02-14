@@ -14,8 +14,6 @@ HEADER_LEN = "Content-Length"
 NOT_FOUND_RESPONSE: JSONResponse = JSONResponse(status_code=status.HTTP_404_NOT_FOUND,
                                                 content={"detail": "File not found"})
 
-__all__ = ['ThumbnailService']
-
 
 class ThumbnailService:
     _storage_client: StorageClient
@@ -70,7 +68,7 @@ class ThumbnailService:
 
     def _create_thumbnail_and_upload(self, source_file_stat: StorageFileItem,
                                      bucket_settings: BucketSettings, bucket: str) -> Response:
-        image_data = self._storage_client.load_file(source_file_stat.directory, source_file_stat.file_name)
+        image_data = self._storage_client.load_file(source_file_stat.bucket, source_file_stat.file_name)
         if not image_data:
             self._logger.debug("Source file was not found")
             return NOT_FOUND_RESPONSE
@@ -98,7 +96,7 @@ class ThumbnailService:
             return Response(status_code=status.HTTP_304_NOT_MODIFIED, headers=headers)
 
         self._logger.debug("Etag is different, return file from bucket")
-        object_stream = self._storage_client.open_stream(file_storage_item.directory, file_storage_item.file_name)
+        object_stream = self._storage_client.open_stream(file_storage_item.bucket, file_storage_item.file_name)
         if not object_stream:
             return NOT_FOUND_RESPONSE
 
