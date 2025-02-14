@@ -6,6 +6,7 @@ from io import BytesIO
 
 from minio import Minio, S3Error
 from minio.commonconfig import ENABLED, Filter
+from minio.helpers import DictType
 from minio.lifecycleconfig import LifecycleConfig, Rule, Expiration
 from urllib3 import BaseHTTPResponse
 
@@ -17,7 +18,7 @@ class StorageFileItem:
     """
     Contains file's information
     """
-    directory: str
+    bucket: str
     """ File location """
     file_name: str
     """ File name """
@@ -70,41 +71,41 @@ class StorageClient(ABC):
     """
 
     @abstractmethod
-    def get_file_stat(self, directory: str, file_name: str) -> StorageFileItem | None:
+    def get_file_stat(self, bucket: str, file_name: str) -> StorageFileItem | None:
         """
         Returns files stats (:class:`StorageItem`)
-        :param directory: Directory
+        :param bucket: File's bucket
         :param file_name: File name
         :return: :class:`StorageItem` or `None` if file was not found
         """
         pass
 
     @abstractmethod
-    def open_stream(self, directory: str, file_name: str) -> StorageResponse:
+    def open_stream(self, bucket: str, file_name: str) -> StorageResponse | None:
         """
         Opens stream to read bytes
-        :param directory: Directory
+        :param bucket: File's bucket
         :param file_name: File name
         :return: Bytes or None if file was not found
         """
         pass
 
     @abstractmethod
-    def load_file(self, directory: str, file_name: str) -> BytesIO | None:
+    def load_file(self, bucket: str, file_name: str) -> BytesIO | None:
         """
         Loads the given file into memory as :class:`BytesIO`
-        :param directory: Directory
+        :param bucket: File's bucket
         :param file_name: File name
         :return: :class:`BytesIO` with loaded bytes, returns `None` if file was not found
         """
         pass
 
     @abstractmethod
-    def put_file(self, directory: str, file_name: str, content: BytesIO, content_type: str,
+    def put_file(self, bucket: str, file_name: str, content: BytesIO, content_type: str,
                  reset_content: bool = True, parent_etag: str | None = None) -> StorageFileItem:
         """
         Uploads files to storage
-        :param directory: Destination directory
+        :param bucket: Destination bucket
         :param file_name: Destination file name
         :param content: Content
         :param content_type: Destination content_type
@@ -115,12 +116,12 @@ class StorageClient(ABC):
         pass
 
     @abstractmethod
-    def try_create_dir(self, directory: str, life_time_days: int) -> bool:
+    def try_create_bucket(self, bucket: str, life_time_days: int) -> bool:
         """
-        Tries to create directory in storage
-        :param life_time_days: How many days files in the bucket live, in days. 30 days by default
-        :param directory: Directory name
-        :return: True if directory was created, False if directory already exists
+        Tries to create bucket in storage
+        :param life_time_days: How many days files in the bucket live, in days
+        :param bucket: Bucket name
+        :return: True if bucket was created, False if bucket already exists
         """
         pass
 
@@ -143,6 +144,7 @@ class _StorageResponse(StorageResponse):
             self._etag = self._etag.replace('"', '')
 
     def __enter__(self) -> Iterable[bytes]:
+        assert self._http_response, "error when access http_response"
         return self._http_response.stream()
 
     def __exit__(self, exc_type, exc_val, exc_tb):
@@ -182,10 +184,10 @@ class S3StorageClient(StorageClient):
 
         self._minio_client = minio
 
-    def open_stream(self, directory: str, file_name: str) -> StorageResponse | None:
+    def open_stream(self, bucket: str, file_name: str) -> StorageResponse | None:
         response: BaseHTTPResponse | None = None
         try:
-            response = self._minio_client.get_object(directory, file_name)
+            response = self._minio_client.get_object(bucket, file_name)
             return _StorageResponse(response)
         except S3Error:
             if response:
@@ -198,11 +200,11 @@ class S3StorageClient(StorageClient):
                 response.release_conn()
             raise e
 
-    def try_create_dir(self, directory: str, life_time_days: int) -> bool:
-        if self._minio_client.bucket_exists(directory):
+    def try_create_bucket(self, bucket: str, life_time_days: int) -> bool:
+        if self._minio_client.bucket_exists(bucket):
             return False
 
-        self._minio_client.make_bucket(directory)
+        self._minio_client.make_bucket(bucket)
 
         if life_time_days > 0:
             ttl_config = LifecycleConfig(
@@ -211,20 +213,23 @@ class S3StorageClient(StorageClient):
                          rule_filter=Filter(prefix=""))
                 ]
             )
-            self._minio_client.set_bucket_lifecycle(directory, ttl_config)
+            self._minio_client.set_bucket_lifecycle(bucket, ttl_config)
         return True
 
-    def get_file_stat(self, directory: str, file_name: str) -> StorageFileItem | None:
+    def get_file_stat(self, bucket: str, file_name: str) -> StorageFileItem | None:
         try:
-            object_stat = self._minio_client.stat_object(bucket_name=directory, object_name=file_name)
-            parent_etag = object_stat.metadata.get(KEY_PARENT_ETAG, None)
-            return StorageFileItem(directory=directory, file_name=file_name, size=object_stat.size,
-                                   content_type=object_stat.content_type, etag=object_stat.etag,
+            object_stat = self._minio_client.stat_object(bucket_name=bucket, object_name=file_name)
+            if not object_stat:
+                return None
+
+            parent_etag = object_stat.metadata.get(KEY_PARENT_ETAG, None) if object_stat.metadata else None
+            return StorageFileItem(bucket=bucket, file_name=file_name, size=object_stat.size or 0,
+                                   content_type=object_stat.content_type or "", etag=object_stat.etag or "",
                                    parent_etag=parent_etag)
         except S3Error:
             return None
 
-    def put_file(self, directory: str, file_name: str, content: BytesIO, content_type: str,
+    def put_file(self, bucket: str, file_name: str, content: BytesIO, content_type: str,
                  reset_content: bool = True, parent_etag: str | None = None) -> StorageFileItem:
         assert content is not None, "Content is required"
 
@@ -235,21 +240,21 @@ class S3StorageClient(StorageClient):
         # seek to the start to put file
         content.seek(0, os.SEEK_SET)
 
-        metadata: dict[str, str] | None = None
+        metadata: DictType | None = None
         if parent_etag:
             metadata = {KEY_PARENT_ETAG: parent_etag}
-        result = self._minio_client.put_object(directory, file_name, content, content_length, content_type=content_type,
+        result = self._minio_client.put_object(bucket, file_name, content, content_length, content_type=content_type,
                                                metadata=metadata)
         if reset_content:
             content.seek(0, os.SEEK_SET)
-        return StorageFileItem(directory=directory, file_name=result.object_name, content_type=content_type,
-                               size=content_length, etag=result.etag, parent_etag=parent_etag)
+        return StorageFileItem(bucket=bucket, file_name=result.object_name, content_type=content_type,
+                               size=content_length, etag=result.etag or "", parent_etag=parent_etag)
 
-    def load_file(self, directory: str, file_name: str) -> BytesIO | None:
+    def load_file(self, bucket: str, file_name: str) -> BytesIO | None:
         result = BytesIO()
         http_response: BaseHTTPResponse | None = None
         try:
-            http_response = self._minio_client.get_object(directory, file_name)
+            http_response = self._minio_client.get_object(bucket, file_name)
             result = self._load_response_to_memory(http_response)
             return result
         except S3Error:
@@ -271,7 +276,8 @@ class S3StorageClient(StorageClient):
             for chunk in stream:
                 result.write(chunk)
             result.seek(0, os.SEEK_SET)
-            return result
         finally:
             response.close()
             response.release_conn()
+
+        return result
