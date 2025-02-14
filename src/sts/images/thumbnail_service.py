@@ -50,7 +50,8 @@ class ThumbnailService:
         else:
             assert scan_result.source_file_stat, "scan_result doesn't have source_file_stat"
             assert scan_result.bucket_settings, "scan_result doesn't have bucket_settings"
-            result = self._create_thumbnail_and_upload(scan_result.source_file_stat, scan_result.bucket_settings,
+            result = self._create_thumbnail_and_upload(scan_result.source_file_stat,
+                                                       scan_result.bucket_settings,
                                                        bucket)
 
         return result

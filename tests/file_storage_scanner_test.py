@@ -14,6 +14,11 @@ _buckets_map = BucketsMap(source_bucket="images", buckets=_buckets,
                           alias_map={'small': 'thumbnail-small', 'medium': 'thumbnail-medium'},
                           all_source_buckets={'images'})
 _default_storage_client_mock = create_autospec(StorageClient)
+_default_storage_client_mock.get_file_stat.return_value = StorageFileItem('unit',
+                                                                          'test.png',
+                                                                          1024,
+                                                                          'image/png',
+                                                                          "abcdef123", None)
 
 
 def test_file_storage_bucket_not_found():
@@ -53,6 +58,7 @@ def test_file_storage_file_found():
     scanner = FileStorageScannerImpl(storage_client_mock, _buckets_map)
     result = scanner.scan_file('thumbnail-small', 'icon.png')
     assert result.status == ScanStatus.FILE_FOUND
+
 
 def test_file_storage_create_new():
     def side_effect(*args):

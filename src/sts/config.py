@@ -1,4 +1,4 @@
-from typing import Tuple, Any
+import typing
 from urllib import parse
 
 from pydantic import BaseModel, HttpUrl, model_validator, Field
@@ -54,7 +54,7 @@ def _parse_bucket_settings(s: str | None) -> dict | None:
     return raw_dict
 
 
-def _parse_path(path: str) -> Tuple[str, str | None]:
+def _parse_path(path: str) -> tuple[str, str | None]:
     fragments = [str(t) for t in path.split('/') if t]
     if len(fragments) < 1:
         raise ValueError(f"Url path '{path}' doesn't contain region")
@@ -101,30 +101,31 @@ class AppSettings(BaseSettings):
     source_bucket: str | None = None
     """ Bucket with source images to process """
 
-    log_level: str = Field('info', frozen=True)
+    log_level: str = 'info'
     """ Logging level. Options: critical, error, warning, info, debug, trace. Default: info """
 
     log_fmt: str = "{time} | {level}: {extra} {message}"
     """ Logging message format """
 
-    size: ImageSize = Field(ImageSize())
+    size: ImageSize = ImageSize()
     """ Thumbnail's default image size, 200x200px be default """
 
-    uvicorn: dict[str, Any] = Field(default_factory=dict[str, Any])
+    uvicorn: dict[str, typing.Any] = Field(default_factory=dict[str, typing.Any])
     """ uvicorn specific settings """
 
     model_config = SettingsConfigDict(env_file=".env", nested_model_default_partial_update=True,
                                       env_nested_delimiter="__", extra='ignore', case_sensitive=False,
                                       json_file="config.json")
 
+    # noinspection PyNestedDecorators
     @model_validator(mode='before')
     @classmethod
-    def before_validator(cls, data: Any) -> Any:
+    def before_validator(cls, data: typing.Any) -> typing.Any:
         result = data
         if isinstance(data, dict):
             raw_dict = dict(data)
 
-            uvicorn_settings = raw_dict.setdefault('uvicorn', dict[str, Any]())
+            uvicorn_settings = raw_dict.setdefault('uvicorn', dict[str, typing.Any]())
             uvicorn_settings.setdefault('host', '0.0.0.0')
             uvicorn_settings.setdefault('port', 80),
             uvicorn_settings.setdefault('proxy_headers', True)

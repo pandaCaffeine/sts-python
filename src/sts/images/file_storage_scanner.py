@@ -1,12 +1,12 @@
 from abc import ABC, abstractmethod
-from dataclasses import dataclass
-from enum import Enum
+from pydantic.dataclasses import dataclass
+from enum import IntEnum
 
 from sts.config import BucketsMap, BucketSettings
 from sts.images.storage_client import StorageClient, StorageFileItem
 
 
-class ScanStatus(Enum):
+class ScanStatus(IntEnum):
     BUCKET_NOT_FOUND = 1
     SOURCE_FILE_NOT_FOUND = 2
     USE_SOURCE_FILE = 3
