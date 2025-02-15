@@ -46,7 +46,8 @@ class BucketsService:
             return result
 
         default_source_bucket = self._app_settings.source_bucket
-        result.source_buckets[default_source_bucket] = self._create_bucket(default_source_bucket, 0)
+        if default_source_bucket:
+            result.source_buckets[default_source_bucket] = self._create_bucket(default_source_bucket, 0)
 
         for bucket_name, bucket_settings in self._app_settings.buckets.items():
             life_time_days = self._app_settings.buckets[bucket_name].life_time_days
