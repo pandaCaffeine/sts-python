@@ -14,7 +14,7 @@ WORKDIR /app
 COPY pyproject.toml poetry.lock ./
 RUN touch README.md && poetry install --only main && rm -rf $POETRY_CACHE_DIR
 
-# runtaime layer
+# runtime layer
 FROM python:3.13.1-alpine AS runtime
 
 ENV VIRTUAL_ENV=/app/.venv \
