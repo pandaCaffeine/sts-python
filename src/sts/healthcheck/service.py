@@ -1,6 +1,5 @@
 from sts.models import BucketsInfo
 
-
 class HealthCheckService:
     _buckets_info: BucketsInfo | None = None
 
@@ -14,3 +13,5 @@ class HealthCheckService:
     def bucket_info(self) -> BucketsInfo:
         assert self._buckets_info, "set_buckets_info() was not called"
         return self._buckets_info
+
+instance = HealthCheckService()

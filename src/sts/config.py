@@ -115,7 +115,7 @@ class AppSettings(BaseSettings):
 
     model_config = SettingsConfigDict(env_file=".env", nested_model_default_partial_update=True,
                                       env_nested_delimiter="__", extra='ignore', case_sensitive=False,
-                                      json_file="config.json")
+                                      json_file="config.json", enable_decoding=False)
 
     # noinspection PyNestedDecorators
     @model_validator(mode='before')
