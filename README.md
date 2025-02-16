@@ -24,7 +24,7 @@ The microservice serves thumbnail images in `minio` and does some ✨magic for y
 
 ## Installation
 
-Use docker image `pandacaffeine/sts:1.1.0` in your docker environment or docker-compose.
+Use docker image `pandacaffeine/sts:1.2.0` in your docker environment or docker-compose.
 
 ## Algorithm
 
