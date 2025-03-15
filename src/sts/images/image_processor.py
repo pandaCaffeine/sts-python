@@ -1,15 +1,57 @@
+from dataclasses import dataclass
+import enum
+from typing import Any
 from io import BytesIO
 
 import PIL
-from PIL import Image
+from PIL import Image, ImageFile
 
 from sts.images.models import ImageData
+from sts.models import ImageFormat
+
+_default_params: dict[str, Any] = {'optimize': True}
+_format_modes: dict[ImageFormat, str] = {
+    ImageFormat.JPEG: 'RGB',
+    ImageFormat.PNG: 'P'
+}
 
 
-def resize_image(data: BytesIO, width: int, height: int) -> ImageData:
+class _ImageConvertResult(enum.IntEnum):
+    SUCCESS = enum.auto()
+    NO_CHANGES = enum.auto()
+    ERROR = enum.auto()
+
+
+@dataclass(frozen=True)
+class _ConvertedImage:
+    result: _ImageConvertResult
+    image: ImageFile
+
+
+def _try_convert_image(source_image: ImageFile, new_mode: str) -> _ConvertedImage:
+    if source_image.mode == new_mode:
+        return _ConvertedImage(result=_ImageConvertResult.NO_CHANGES, image=source_image)
+
+    try:
+        new_image = source_image.convert(new_mode)
+        if source_image != new_image:
+            source_image.close()
+
+        return _ConvertedImage(result=_ImageConvertResult.SUCCESS, image=new_image)
+    except ValueError:
+        return _ConvertedImage(result=_ImageConvertResult.ERROR, image=source_image)
+
+
+def resize_image(data: BytesIO,
+                 width: int,
+                 height: int,
+                 image_format: ImageFormat = ImageFormat.NONE,
+                 params: dict[str, Any] | None = None) -> ImageData:
     assert data is not None, "data cannot be None"
     assert width > 0, "width must be greater than 0"
     assert height > 0, "height must be greater than 0"
+
+    save_params = params or _default_params
 
     with data:
         try:
@@ -18,8 +60,13 @@ def resize_image(data: BytesIO, width: int, height: int) -> ImageData:
 
                 new_size: tuple[float, float] = (float(width), float(height))
                 im.thumbnail(new_size)
+
+                if image_format != ImageFormat.NONE:
+                    dest_mode = _format_modes[image_format]
+                    im = _try_convert_image(im, dest_mode).image
+
                 result = BytesIO()
-                im.save(result, im.format, optimize=True)
+                im.save(result, im.format, **save_params)
                 return ImageData(content_type=mime_type, error=None, data=result)
         except (PIL.UnidentifiedImageError, ValueError, TypeError, Exception) as e:
             return ImageData(content_type=mime_type, error=e, data=None)
