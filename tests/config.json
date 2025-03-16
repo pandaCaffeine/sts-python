@@ -15,7 +15,7 @@
     "thumbnail": {
       "life_time_days": 10
     },
-    "pictures-small": "alias=p&size=50x50&source_bucket=items"
+    "pictures-small": "alias=p&size=50x50&source_bucket=items&format=jpeg"
   },
   "s3": "http://MINIO_AK:MINIO_SK@localhost:9000/eu-west-1/images",
   "size": "100x100",
