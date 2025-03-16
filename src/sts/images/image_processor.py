@@ -57,13 +57,14 @@ def resize_image(data: BytesIO,
         try:
             with Image.open(data) as im:
                 mime_type = im.get_format_mimetype()
-
                 new_size: tuple[float, float] = (float(width), float(height))
                 im.thumbnail(new_size)
 
                 if image_format != ImageFormat.NONE:
                     dest_mode = _format_modes[image_format]
                     im = _try_convert_image(im, dest_mode).image
+                    im.format = str(image_format)
+                    mime_type = Image.MIME.get(im.format.upper())
 
                 result = BytesIO()
                 im.save(result, im.format, **save_params)
