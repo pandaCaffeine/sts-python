@@ -44,6 +44,7 @@ services:
     environment:
       BUCKETS__THUMBNAIL-SMALL__SIZE: "100x100"
       BUCKETS__THUMBNAIL-SMALL__ALIAS: small
+      BUCKETS__THUMBNAIL-SMALL__FORMAT: "JPEG"
       BUCKETS__THUMBNAIL-MEDIUM__SIZE: "500x500"
       BUCKETS__THUMBNAIL-MEDIUM__ALIAS: medium
       S3: "http://MINIO_AK:MINIO_SK@minio:9000/eu-west-1/images"
