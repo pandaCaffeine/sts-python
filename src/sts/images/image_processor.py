@@ -1,7 +1,5 @@
-from dataclasses import dataclass
-import enum
-from typing import Any
 from io import BytesIO
+from typing import Any
 
 import PIL
 from PIL import Image, ImageFile
@@ -16,30 +14,21 @@ _format_modes: dict[ImageFormat, str] = {
 }
 
 
-class _ImageConvertResult(enum.IntEnum):
-    SUCCESS = enum.auto()
-    NO_CHANGES = enum.auto()
-    ERROR = enum.auto()
-
-
-@dataclass(frozen=True)
-class _ConvertedImage:
-    result: _ImageConvertResult
-    image: ImageFile
-
-
-def _try_convert_image(source_image: ImageFile, new_mode: str) -> _ConvertedImage:
+def _try_convert_image(source_image: PIL.ImageFile.ImageFile, new_mode: str) -> PIL.Image.Image:
     if source_image.mode == new_mode:
-        return _ConvertedImage(result=_ImageConvertResult.NO_CHANGES, image=source_image)
+        return source_image
 
+    new_image: PIL.Image.Image | None = None
     try:
         new_image = source_image.convert(new_mode)
         if source_image != new_image:
             source_image.close()
 
-        return _ConvertedImage(result=_ImageConvertResult.SUCCESS, image=new_image)
-    except ValueError:
-        return _ConvertedImage(result=_ImageConvertResult.ERROR, image=source_image)
+        return new_image
+    except (ValueError, Exception):
+        if new_image:
+            new_image.close()
+        return source_image
 
 
 def resize_image(data: BytesIO,
@@ -62,7 +51,7 @@ def resize_image(data: BytesIO,
 
                 if image_format != ImageFormat.NONE:
                     dest_mode = _format_modes[image_format]
-                    im = _try_convert_image(im, dest_mode).image
+                    im = _try_convert_image(im, dest_mode)
                     im.format = str(image_format)
                     mime_type = Image.MIME.get(im.format.upper())
 
