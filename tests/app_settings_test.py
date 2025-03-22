@@ -1,4 +1,5 @@
 from sts.config import get_app_settings, get_buckets_map, ImageSize, BucketSettings
+from sts.models import ImageFormat
 
 
 def _assert_that_bucket_settings_are_equal(expected: BucketSettings, actual: BucketSettings):
@@ -26,7 +27,8 @@ _expected_thumbnail = BucketSettings(alias=None,
 _expected_pictures_small = BucketSettings(alias='p',
                                           size=ImageSize(50, 50),
                                           source_bucket='items',
-                                          life_time_days=30)
+                                          life_time_days=30,
+                                          format=ImageFormat.JPEG)
 
 
 def test_read():
@@ -91,6 +93,7 @@ def test_buckets_map():
     # assert thumbnail
     bucket_settings = buckets_map.buckets['thumbnail']
     _assert_that_bucket_settings_are_equal(_expected_thumbnail, bucket_settings)
+
 
 def test_uvicorn_defaults():
     # arrange & act

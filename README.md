@@ -2,7 +2,7 @@
 
 # Simple Thumbnail Service (sts)
 
-Current version: `1.2`
+Current version: `1.3`
 
 The microservice serves thumbnail images in `minio` and does some ✨magic for you:
 
@@ -71,7 +71,11 @@ Configuration files must be places inside image in folder `/code/`.
       "height": 200,
       "life_time_days": 30,
       "source_bucket": null,
-      "alias": null
+      "alias": null,
+      "format": "jpeg",
+      "format_args": {
+        "optimize": true
+      }
     }
   },
   "source_bucket": "images",
@@ -155,6 +159,23 @@ The rest parameters have the same meaning as it described in S3 configs section.
 * `source_bucket` - overrides root `source_bucket`, so you can define thumbnail buckets for few buckets with original
   files. If this config is not set - the root `source_bucket` will be used.
 * `alias` - an optional alias for the bucket, used for alternative endpoint (see below).
+* `format` - thumbnail file format, available options:
+  * `jpeg` - JPEG file
+  * `png` - PNG file
+  * `none` - keep source file format
+* `format_args` - optional arguments for file format, see description below.
+
+ℹ️ Description about `format_args`:
+
+Mostly you don't want to set these args because it can lead to unpredictable result like corrupted images, but if you
+want to, you can set any settings according to the PIL documentation:
+* for `jpeg`: https://pillow.readthedocs.io/en/stable/handbook/image-file-formats.html#jpeg-saving
+* for `png`: https://pillow.readthedocs.io/en/stable/handbook/image-file-formats.html#png-saving
+
+Unknown arguments are ignored. If not set, following arguments applied:
+```json
+{ "optimize": true }
+```
 
 The bucket config can set as string value in http query-like way, for example:
 

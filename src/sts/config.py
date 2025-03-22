@@ -5,6 +5,8 @@ from pydantic import BaseModel, HttpUrl, model_validator, Field
 from pydantic.dataclasses import dataclass
 from pydantic_settings import BaseSettings, SettingsConfigDict, PydanticBaseSettingsSource, JsonConfigSettingsSource
 
+from sts.models import ImageFormat
+
 
 @dataclass(frozen=True, slots=True)
 class ImageSize:
@@ -27,6 +29,12 @@ class BucketSettings(BaseModel):
 
     alias: str | None = None
     """ Optional alias for the bucket, can be used for alternative routes """
+
+    format: ImageFormat = ImageFormat.NONE
+    """ Image format, available values: NONE (default), JPEG, PNG """
+
+    format_args: dict[str, typing.Any] | None = None
+    """ Additional format parameters, None by default """
 
 
 @dataclass(frozen=True, slots=True)
