@@ -5,7 +5,8 @@
         "w": 300,
         "h": 300
       },
-      "alias": "small"
+      "alias": "small",
+      "format": "jpeg"
     },
     "thumbnail-medium": {
       "size": "500x500",

@@ -1,6 +1,10 @@
 import enum
 from dataclasses import dataclass
 
+class ImageFormat(enum.StrEnum):
+    NONE = enum.auto()
+    PNG = enum.auto()
+    JPEG = enum.auto()
 
 class BucketStatus(str, enum.Enum):
     created = "created",
