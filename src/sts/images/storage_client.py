@@ -270,7 +270,7 @@ class S3StorageClient(StorageClient):
 
     @staticmethod
     def _load_response_to_memory(response: BaseHTTPResponse) -> BytesIO:
-        result = BytesIO()
+        result: BytesIO = BytesIO()
         try:
             stream = response.stream()
             for chunk in stream:
