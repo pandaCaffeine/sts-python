@@ -8,6 +8,7 @@ from minio import Minio, S3Error
 from minio.commonconfig import ENABLED, Filter
 from minio.helpers import DictType
 from minio.lifecycleconfig import LifecycleConfig, Rule, Expiration
+from starlette.concurrency import run_in_threadpool
 from urllib3 import BaseHTTPResponse
 
 KEY_PARENT_ETAG: str = "x-amz-meta-parent-etag"
@@ -71,7 +72,7 @@ class StorageClient(ABC):
     """
 
     @abstractmethod
-    def get_file_stat(self, bucket: str, file_name: str) -> StorageFileItem | None:
+    async def get_file_stat(self, bucket: str, file_name: str) -> StorageFileItem | None:
         """
         Returns files stats (:class:`StorageItem`)
         :param bucket: File's bucket
@@ -81,7 +82,7 @@ class StorageClient(ABC):
         pass
 
     @abstractmethod
-    def open_stream(self, bucket: str, file_name: str) -> StorageResponse | None:
+    async def open_stream(self, bucket: str, file_name: str) -> StorageResponse | None:
         """
         Opens stream to read bytes
         :param bucket: File's bucket
@@ -91,7 +92,7 @@ class StorageClient(ABC):
         pass
 
     @abstractmethod
-    def load_file(self, bucket: str, file_name: str) -> BytesIO | None:
+    async def load_file(self, bucket: str, file_name: str) -> BytesIO | None:
         """
         Loads the given file into memory as :class:`BytesIO`
         :param bucket: File's bucket
@@ -101,8 +102,8 @@ class StorageClient(ABC):
         pass
 
     @abstractmethod
-    def put_file(self, bucket: str, file_name: str, content: BytesIO, content_type: str,
-                 reset_content: bool = True, parent_etag: str | None = None) -> StorageFileItem:
+    async def put_file(self, bucket: str, file_name: str, content: BytesIO, content_type: str,
+                       reset_content: bool = True, parent_etag: str | None = None) -> StorageFileItem:
         """
         Uploads files to storage
         :param bucket: Destination bucket
@@ -116,7 +117,7 @@ class StorageClient(ABC):
         pass
 
     @abstractmethod
-    def try_create_bucket(self, bucket: str, life_time_days: int) -> bool:
+    async def try_create_bucket(self, bucket: str, life_time_days: int) -> bool:
         """
         Tries to create bucket in storage
         :param life_time_days: How many days files in the bucket live, in days
@@ -184,10 +185,11 @@ class S3StorageClient(StorageClient):
 
         self._minio_client = minio
 
-    def open_stream(self, bucket: str, file_name: str) -> StorageResponse | None:
+    async def open_stream(self, bucket: str, file_name: str) -> StorageResponse | None:
         response: BaseHTTPResponse | None = None
         try:
-            response = self._minio_client.get_object(bucket, file_name)
+            response = await run_in_threadpool(self._minio_client.get_object,
+                                               **{'bucket_name': bucket, 'object_name': file_name})
             return _StorageResponse(response)
         except S3Error:
             if response:
@@ -200,12 +202,12 @@ class S3StorageClient(StorageClient):
                 response.release_conn()
             raise e
 
-    def try_create_bucket(self, bucket: str, life_time_days: int) -> bool:
-        if self._minio_client.bucket_exists(bucket):
+    async def try_create_bucket(self, bucket: str, life_time_days: int) -> bool:
+        bucket_exists = await run_in_threadpool(self._minio_client.bucket_exists, bucket_name=bucket)
+        if bucket_exists:
             return False
 
-        self._minio_client.make_bucket(bucket)
-
+        await run_in_threadpool(self._minio_client.make_bucket, bucket_name=bucket, location=None, object_lock=False)
         if life_time_days > 0:
             ttl_config = LifecycleConfig(
                 [
@@ -213,12 +215,13 @@ class S3StorageClient(StorageClient):
                          rule_filter=Filter(prefix=""))
                 ]
             )
-            self._minio_client.set_bucket_lifecycle(bucket, ttl_config)
+            await run_in_threadpool(self._minio_client.set_bucket_lifecycle, bucket_name=bucket, config=ttl_config)
         return True
 
-    def get_file_stat(self, bucket: str, file_name: str) -> StorageFileItem | None:
+    async def get_file_stat(self, bucket: str, file_name: str) -> StorageFileItem | None:
         try:
-            object_stat = self._minio_client.stat_object(bucket_name=bucket, object_name=file_name)
+            object_stat = await run_in_threadpool(self._minio_client.stat_object,
+                                                  **{'bucket_name':bucket, 'object_name':file_name})
             if not object_stat:
                 return None
 
@@ -229,7 +232,7 @@ class S3StorageClient(StorageClient):
         except S3Error:
             return None
 
-    def put_file(self, bucket: str, file_name: str, content: BytesIO, content_type: str,
+    async def put_file(self, bucket: str, file_name: str, content: BytesIO, content_type: str,
                  reset_content: bool = True, parent_etag: str | None = None) -> StorageFileItem:
         assert content is not None, "Content is required"
 
@@ -243,19 +246,31 @@ class S3StorageClient(StorageClient):
         metadata: DictType | None = None
         if parent_etag:
             metadata = {KEY_PARENT_ETAG: parent_etag}
-        result = self._minio_client.put_object(bucket, file_name, content, content_length, content_type=content_type,
-                                               metadata=metadata)
+
+        put_object_kwargs = {
+            'bucket_name': bucket,
+            'object_name': file_name,
+            'data': content,
+            'content_type': content_type,
+            'metadata': metadata,
+            'length': content_length
+        }
+        result = await run_in_threadpool(self._minio_client.put_object, **put_object_kwargs)
         if reset_content:
             content.seek(0, os.SEEK_SET)
         return StorageFileItem(bucket=bucket, file_name=result.object_name, content_type=content_type,
                                size=content_length, etag=result.etag or "", parent_etag=parent_etag)
 
-    def load_file(self, bucket: str, file_name: str) -> BytesIO | None:
+    async def load_file(self, bucket: str, file_name: str) -> BytesIO | None:
         result = BytesIO()
         http_response: BaseHTTPResponse | None = None
         try:
-            http_response = self._minio_client.get_object(bucket, file_name)
-            result = self._load_response_to_memory(http_response)
+            get_object_kwargs = {
+                'bucket_name': bucket,
+                'object_name': file_name
+            }
+            http_response = await run_in_threadpool(self._minio_client.get_object, **get_object_kwargs)
+            result = await run_in_threadpool(self._load_response_to_memory, response=http_response)
             return result
         except S3Error:
             result.close()

@@ -25,7 +25,7 @@ class ScanResult:
 class FileStorageScanner(ABC):
 
     @abstractmethod
-    def scan_file(self, bucket: str, file_name) -> ScanResult:
+    async def scan_file(self, bucket: str, file_name) -> ScanResult:
         pass
 
     @abstractmethod
@@ -52,19 +52,19 @@ class FileStorageScannerImpl(FileStorageScanner):
 
         return result
 
-    def scan_file(self, bucket: str, file_name) -> ScanResult:
+    async def scan_file(self, bucket: str, file_name) -> ScanResult:
         bucket_settings = self._get_bucket_settings(bucket)
         if not bucket_settings:
             return ScanResult(status=ScanStatus.BUCKET_NOT_FOUND)
 
-        source_file_stat = self._storage_client.get_file_stat(bucket_settings.source_bucket, file_name)
+        source_file_stat = await self._storage_client.get_file_stat(bucket_settings.source_bucket, file_name)
         if not source_file_stat:
             return ScanResult(status=ScanStatus.SOURCE_FILE_NOT_FOUND)
 
         if bucket == bucket_settings.source_bucket:
             return ScanResult(status=ScanStatus.USE_SOURCE_FILE, source_file_stat=source_file_stat)
 
-        thumbnail_stat = self._storage_client.get_file_stat(bucket, file_name)
+        thumbnail_stat = await self._storage_client.get_file_stat(bucket, file_name)
         if thumbnail_stat and thumbnail_stat.parent_etag == source_file_stat.etag:
             return ScanResult(status=ScanStatus.FILE_FOUND, source_file_stat=source_file_stat, file_stat=thumbnail_stat)
 
