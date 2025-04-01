@@ -17,9 +17,9 @@ class BucketsService:
         self._storage_client = storage_client
         self._logger = l
 
-    def _create_bucket(self, bucket_name: str, life_time_days: int) -> BucketStatus:
+    async def _create_bucket(self, bucket_name: str, life_time_days: int) -> BucketStatus:
         try:
-            bucket_created = self._storage_client.try_create_bucket(bucket_name, life_time_days)
+            bucket_created = await self._storage_client.try_create_bucket(bucket_name, life_time_days)
             if bucket_created:
                 self._logger.info(
                     f"Bucket {bucket_name} was created with life time in {life_time_days} days (zero days means infinity)")
@@ -37,7 +37,7 @@ class BucketsService:
         thumbnail_buckets_have_errors = any(t == BucketStatus.error for t in result.thumbnail_buckets.items())
         return source_buckets_have_errors or thumbnail_buckets_have_errors
 
-    def create_buckets(self) -> BucketsInfo:
+    async def create_buckets(self) -> BucketsInfo:
         self._logger.debug(f"Creating {len(self._app_settings.buckets)} buckets")
         result = BucketsInfo(thumbnail_buckets=dict(), source_buckets=dict(), error=True)
 
@@ -47,15 +47,15 @@ class BucketsService:
 
         default_source_bucket = self._app_settings.source_bucket
         if default_source_bucket:
-            result.source_buckets[default_source_bucket] = self._create_bucket(default_source_bucket, 0)
+            result.source_buckets[default_source_bucket] = await self._create_bucket(default_source_bucket, 0)
 
         for bucket_name, bucket_settings in self._app_settings.buckets.items():
             life_time_days = self._app_settings.buckets[bucket_name].life_time_days
-            result.thumbnail_buckets[bucket_name] = self._create_bucket(bucket_name, life_time_days)
+            result.thumbnail_buckets[bucket_name] = await self._create_bucket(bucket_name, life_time_days)
 
             source_bucket = bucket_settings.source_bucket
             if source_bucket and source_bucket != default_source_bucket:
-                result.source_buckets[source_bucket] = self._create_bucket(bucket_settings.source_bucket, 0)
+                result.source_buckets[source_bucket] = await self._create_bucket(bucket_settings.source_bucket, 0)
 
         result.error = self._check_if_result_has_errors(result)
         return result
