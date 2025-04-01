@@ -1,7 +1,9 @@
+import functools
 from io import BytesIO
 from typing import Any
 
 import PIL
+import anyio.to_thread
 from PIL import Image, ImageFile
 
 from sts.images.models import ImageData
@@ -60,3 +62,12 @@ def resize_image(data: BytesIO,
                 return ImageData(content_type=mime_type, error=None, data=result)
         except (PIL.UnidentifiedImageError, ValueError, TypeError, Exception) as e:
             return ImageData(content_type=mime_type, error=e, data=None)
+
+async def resize_image_async(data: BytesIO,
+                 width: int,
+                 height: int,
+                 image_format: ImageFormat = ImageFormat.NONE,
+                 params: dict[str, Any] | None = None) -> ImageData:
+    func = functools.partial(resize_image, data=data, width=width, height=height, image_format=image_format, params=params)
+    return await anyio.to_thread.run_sync(func, ())
+
