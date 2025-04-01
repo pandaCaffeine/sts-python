@@ -1,24 +1,70 @@
+import functools
 import os
+import typing
 from abc import ABC, abstractmethod
 from collections.abc import Iterable
 from dataclasses import dataclass
 from io import BytesIO
+from typing import BinaryIO
 
+import anyio.to_thread
 from minio import Minio, S3Error
 from minio.commonconfig import ENABLED, Filter
-from minio.helpers import DictType
+from minio.datatypes import Object
+from minio.helpers import DictType, ObjectWriteResult
 from minio.lifecycleconfig import LifecycleConfig, Rule, Expiration
 from starlette.concurrency import run_in_threadpool
 from urllib3 import BaseHTTPResponse
 
 KEY_PARENT_ETAG: str = "x-amz-meta-parent-etag"
 
+T = typing.TypeVar("T")
+P = typing.ParamSpec("P")
+
+
+class _AsyncMinio:
+    _minio: Minio
+
+    def __init__(self, minio: Minio):
+        if not minio:
+            raise ValueError("minio is required")
+
+        self._minio = minio
+
+    @staticmethod
+    async def _run_async(func: typing.Callable[P, T], *args, **kwargs) -> T:
+        func = functools.partial(func, *args, **kwargs)
+        return await anyio.to_thread.run_sync(func, ())
+
+    async def get_object(self, bucket_name: str, object_name: str) -> BaseHTTPResponse:
+        return await self._run_async(self._minio.get_object, bucket_name=bucket_name, object_name=object_name)
+
+    async def bucket_exists(self, bucket_name: str) -> bool:
+        return await self._run_async(self._minio.bucket_exists, bucket_name=bucket_name)
+
+    async def make_bucket(self, bucket_name: str) -> None:
+        return await self._run_async(self._minio.make_bucket, bucket_name=bucket_name)
+
+    async def set_bucket_lifecycle(self, bucket_name: str, config: LifecycleConfig) -> None:
+        return await self._run_async(self._minio.set_bucket_lifecycle, bucket_name=bucket_name, config=config)
+
+    async def stat_object(self, bucket_name: str, object_name: str) -> Object:
+        return await self._run_async(self._minio.stat_object, bucket_name=bucket_name, object_name=object_name)
+
+    async def put_object(self,
+                         bucket_name: str,
+                         object_name: str,
+                         data: BinaryIO,
+                         length: int,
+                         content_type: str,
+                         metadata: DictType | None) -> ObjectWriteResult:
+        return await self._run_async(self._minio.put_object, bucket_name=bucket_name, object_name=object_name,
+                                     data=data, length=length, content_type=content_type, metadata=metadata)
+
 
 @dataclass(frozen=True, slots=True)
 class StorageFileItem:
-    """
-    Contains file's information
-    """
+    """ Contains file's information """
     bucket: str
     """ File location """
     file_name: str
@@ -178,18 +224,17 @@ class _StorageResponse(StorageResponse):
 
 
 class S3StorageClient(StorageClient):
-    _minio_client: Minio
+    _minio_client: _AsyncMinio
 
     def __init__(self, minio: Minio):
         assert minio is not None, "Minio client is required"
 
-        self._minio_client = minio
+        self._minio_client = _AsyncMinio(minio)
 
     async def open_stream(self, bucket: str, file_name: str) -> StorageResponse | None:
         response: BaseHTTPResponse | None = None
         try:
-            response = await run_in_threadpool(self._minio_client.get_object,
-                                               **{'bucket_name': bucket, 'object_name': file_name})
+            response = await self._minio_client.get_object(bucket, file_name)
             return _StorageResponse(response)
         except S3Error:
             if response:
@@ -207,7 +252,7 @@ class S3StorageClient(StorageClient):
         if bucket_exists:
             return False
 
-        await run_in_threadpool(self._minio_client.make_bucket, bucket_name=bucket, location=None, object_lock=False)
+        await self._minio_client.make_bucket(bucket)
         if life_time_days > 0:
             ttl_config = LifecycleConfig(
                 [
@@ -215,13 +260,12 @@ class S3StorageClient(StorageClient):
                          rule_filter=Filter(prefix=""))
                 ]
             )
-            await run_in_threadpool(self._minio_client.set_bucket_lifecycle, bucket_name=bucket, config=ttl_config)
+            await self._minio_client.set_bucket_lifecycle(bucket, ttl_config)
         return True
 
     async def get_file_stat(self, bucket: str, file_name: str) -> StorageFileItem | None:
         try:
-            object_stat = await run_in_threadpool(self._minio_client.stat_object,
-                                                  **{'bucket_name':bucket, 'object_name':file_name})
+            object_stat = await self._minio_client.stat_object(bucket, file_name)
             if not object_stat:
                 return None
 
@@ -233,7 +277,7 @@ class S3StorageClient(StorageClient):
             return None
 
     async def put_file(self, bucket: str, file_name: str, content: BytesIO, content_type: str,
-                 reset_content: bool = True, parent_etag: str | None = None) -> StorageFileItem:
+                       reset_content: bool = True, parent_etag: str | None = None) -> StorageFileItem:
         assert content is not None, "Content is required"
 
         # read content length
@@ -247,15 +291,7 @@ class S3StorageClient(StorageClient):
         if parent_etag:
             metadata = {KEY_PARENT_ETAG: parent_etag}
 
-        put_object_kwargs = {
-            'bucket_name': bucket,
-            'object_name': file_name,
-            'data': content,
-            'content_type': content_type,
-            'metadata': metadata,
-            'length': content_length
-        }
-        result = await run_in_threadpool(self._minio_client.put_object, **put_object_kwargs)
+        result = await self._minio_client.put_object(bucket, file_name, content, content_length, content_type, metadata)
         if reset_content:
             content.seek(0, os.SEEK_SET)
         return StorageFileItem(bucket=bucket, file_name=result.object_name, content_type=content_type,
@@ -265,11 +301,7 @@ class S3StorageClient(StorageClient):
         result = BytesIO()
         http_response: BaseHTTPResponse | None = None
         try:
-            get_object_kwargs = {
-                'bucket_name': bucket,
-                'object_name': file_name
-            }
-            http_response = await run_in_threadpool(self._minio_client.get_object, **get_object_kwargs)
+            http_response = await self._minio_client.get_object(bucket, file_name)
             result = await run_in_threadpool(self._load_response_to_memory, response=http_response)
             return result
         except S3Error:
@@ -285,7 +317,7 @@ class S3StorageClient(StorageClient):
 
     @staticmethod
     def _load_response_to_memory(response: BaseHTTPResponse) -> BytesIO:
-        result: BytesIO = BytesIO()
+        result = BytesIO()
         try:
             stream = response.stream()
             for chunk in stream:
