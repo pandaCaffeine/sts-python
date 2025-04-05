@@ -12,14 +12,14 @@ _EtagDep = Annotated[str | None, Header(alias="If-None-Match")]
 
 
 @images_router.get("/{bucket}/{file_name}")
-def get_thumbnail(bucket: str, file_name: str,
+async def get_thumbnail(bucket: str, file_name: str,
                   thumbnail_service: ThumbnailServiceDep,
                   etag: _EtagDep = None) -> Response:
-    return thumbnail_service.get_thumbnail(bucket, file_name, etag)
+    return await thumbnail_service.get_thumbnail(bucket, file_name, etag)
 
 
 @images_router.get("/{bucket}/{file_name}/{alias}")
-def get_thumbnail_by_alias(bucket: str, file_name: str, alias: str,
+async def get_thumbnail_by_alias(bucket: str, file_name: str, alias: str,
                            thumbnail_service: ThumbnailServiceDep,
                            etag: _EtagDep = None) -> Response:
-    return thumbnail_service.get_thumbnail_by_alias(bucket, file_name, alias, etag)
+    return await thumbnail_service.get_thumbnail_by_alias(bucket, file_name, alias, etag)
