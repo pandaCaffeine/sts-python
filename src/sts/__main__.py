@@ -1,4 +1,5 @@
 import sys
+from contextlib import asynccontextmanager
 
 import uvicorn
 from fastapi import FastAPI
@@ -22,28 +23,27 @@ def __configure_logger():
                format=app_settings.log_fmt)
 
 
-def __create_fastapi_app() -> FastAPI:
-    result = FastAPI()
-    result.include_router(images_router)
-    result.include_router(hc_route)
-    return result
-
-
-def __start_app():
-    l = logger.bind(source="core")
+async def __startup():
     app_settings = get_app_settings()
-
     storage_client = get_storage_client()
-    buckets_service = BucketsService(app_settings, storage_client, l)
-    buckets_info = buckets_service.create_buckets()
+    buckets_service = BucketsService(app_settings, storage_client, logger.bind(source="core"))
+    buckets_info = await buckets_service.create_buckets()
 
     hc_service = hc_instance
     hc_service.set_buckets_info(buckets_info)
 
-    web_app = __create_fastapi_app()
-    l.info("Starting web host")
 
-    uvicorn.run(web_app, **app_settings.uvicorn)
+@asynccontextmanager
+async def __lifespan(_: FastAPI):
+    await __startup()
+    yield
+
+
+def __create_fastapi_app() -> FastAPI:
+    result = FastAPI(lifespan=__lifespan)
+    result.include_router(images_router)
+    result.include_router(hc_route)
+    return result
 
 
 if __name__ == "__main__":
@@ -58,4 +58,8 @@ if __name__ == "__main__":
     for bucket, bucket_cfg in app_cfg.buckets.items():
         print(f" ** {bucket_cfg.source_bucket or '<undefined>'} -> {bucket} @ {bucket_cfg.alias}")
 
-    __start_app()
+    l = logger.bind(source="core")
+    l.info("Starting web host")
+
+    web_app = __create_fastapi_app()
+    uvicorn.run(web_app, **app_cfg.uvicorn)

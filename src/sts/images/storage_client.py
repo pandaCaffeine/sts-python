@@ -13,7 +13,6 @@ from minio.commonconfig import ENABLED, Filter
 from minio.datatypes import Object
 from minio.helpers import DictType, ObjectWriteResult
 from minio.lifecycleconfig import LifecycleConfig, Rule, Expiration
-from starlette.concurrency import run_in_threadpool
 from urllib3 import BaseHTTPResponse
 
 KEY_PARENT_ETAG: str = "x-amz-meta-parent-etag"
@@ -269,7 +268,7 @@ class S3StorageClient(StorageClient):
             raise e
 
     async def try_create_bucket(self, bucket: str, life_time_days: int) -> bool:
-        bucket_exists = await run_in_threadpool(self._minio_client.bucket_exists, bucket_name=bucket)
+        bucket_exists = await self._minio_client.bucket_exists(bucket)
         if bucket_exists:
             return False
 
