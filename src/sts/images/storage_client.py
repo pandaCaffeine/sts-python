@@ -34,10 +34,14 @@ class _AsyncMinio:
     @staticmethod
     async def _run_async(func: typing.Callable[P, T], *args, **kwargs) -> T:
         func = functools.partial(func, *args, **kwargs)
-        return await anyio.to_thread.run_sync(func, ())
+        return await anyio.to_thread.run_sync(func)
 
     async def get_object(self, bucket_name: str, object_name: str) -> BaseHTTPResponse:
         return await self._run_async(self._minio.get_object, bucket_name=bucket_name, object_name=object_name)
+
+    async def load_file(self, bucket_name: str, object_name: str) -> BytesIO:
+        obj = await self.get_object(bucket_name, object_name)
+        return await self._load_to_memory(obj)
 
     async def bucket_exists(self, bucket_name: str) -> bool:
         return await self._run_async(self._minio.bucket_exists, bucket_name=bucket_name)
@@ -60,6 +64,23 @@ class _AsyncMinio:
                          metadata: DictType | None) -> ObjectWriteResult:
         return await self._run_async(self._minio.put_object, bucket_name=bucket_name, object_name=object_name,
                                      data=data, length=length, content_type=content_type, metadata=metadata)
+
+    @staticmethod
+    async def _load_to_memory(response: BaseHTTPResponse) -> BytesIO:
+        def sync_load() -> BytesIO:
+            result: BytesIO = BytesIO()
+            try:
+                stream = response.stream()
+                for chunk in stream:
+                    result.write(chunk)
+                result.seek(0, os.SEEK_SET)
+            finally:
+                response.close()
+                response.release_conn()
+            return result
+
+        return await anyio.to_thread.run_sync(sync_load)
+
 
 
 @dataclass(frozen=True, slots=True)
@@ -301,8 +322,7 @@ class S3StorageClient(StorageClient):
         result = BytesIO()
         http_response: BaseHTTPResponse | None = None
         try:
-            http_response = await self._minio_client.get_object(bucket, file_name)
-            result = await run_in_threadpool(self._load_response_to_memory, response=http_response)
+            result = await self._minio_client.load_file(bucket, file_name)
             return result
         except S3Error:
             result.close()
@@ -314,17 +334,3 @@ class S3StorageClient(StorageClient):
             if http_response:
                 http_response.close()
                 http_response.release_conn()
-
-    @staticmethod
-    def _load_response_to_memory(response: BaseHTTPResponse) -> BytesIO:
-        result = BytesIO()
-        try:
-            stream = response.stream()
-            for chunk in stream:
-                result.write(chunk)
-            result.seek(0, os.SEEK_SET)
-        finally:
-            response.close()
-            response.release_conn()
-
-        return result
