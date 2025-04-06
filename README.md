@@ -2,7 +2,7 @@
 
 # Simple Thumbnail Service (sts)
 
-Current version: `1.3`
+Current version: `1.4`
 
 The microservice serves thumbnail images in `minio` and does some ✨magic for you:
 
@@ -240,6 +240,23 @@ The repository contains an example nginx configuration file and a docker-compose
 6. test in browser small thumbnail: `http://localhost/images/{file_name}/small`
 7. test in browser medium thumbnail: `http://localhost/images/{file_name}/medium`
 
+### Asynchronous version
+After converting all the endpoints (and logic behind) I run a small stress test:
+
+`wrk -t4 -c100 -d10s http://localhost:80/images/img0.jpg/small`
+
+Which gave following results:
+
+| Version | RPS  |
+|---------|------|
+| async   | ~800 |
+| sync    | ~900 |
+
+_Conclusion_: the minio client was not designed for asynchronous work, and using it in the event loop adds more overhead than it is worth.
+Image conversion to a thumbnail is a CPU-intensive task that does not make sense to perform in the event loop.
+
+See [async-endpoints](https://github.com/pandaCaffeine/sts-python/tree/feature/async-endpoints) branch.
+
 ## Roadmap
 
 There are no specific deadlines at this time, but we have some ideas for future development:
@@ -247,8 +264,8 @@ There are no specific deadlines at this time, but we have some ideas for future 
 1. ✅ version 1.1: source file first - return 404 if source file was deleted, recreate thumbnail file if source file was
    changed
 2. ✅ version 1.2: make configuration simpler
-3. 🔳 version 1.3: file configuration for thumbnails - ability to choose thumbnails file format and some options like
+3. ✅ version 1.3: file configuration for thumbnails - ability to choose thumbnails file format and some options like
    quality
-4. 🔳 version 1.4: make async endpoints
+4. ✅ ~~version 1.4~~: make async endpoints (doesn't make sense, see above)
 5. 🔳 version 1.5: add DI container 
 6. 🔳 version 2.0: refactoring, fixes, code cleanup

@@ -13,5 +13,8 @@
       "alias": "medium"
     }
   },
-  "s3": "http://MINIO_AK:MINIO_SK@localhost:9000/eu-west-1/images"
+  "s3": "http://MINIO_AK:MINIO_SK@localhost:9000/eu-west-1/images",
+  "uvicorn": {
+    "access_log": false
+  }
 }
