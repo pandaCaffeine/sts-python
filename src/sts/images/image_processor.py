@@ -69,5 +69,5 @@ async def resize_image_async(data: BytesIO,
                  image_format: ImageFormat = ImageFormat.NONE,
                  params: dict[str, Any] | None = None) -> ImageData:
     func = functools.partial(resize_image, data=data, width=width, height=height, image_format=image_format, params=params)
-    return await anyio.to_thread.run_sync(func, ())
+    return await anyio.to_thread.run_sync(func)
 

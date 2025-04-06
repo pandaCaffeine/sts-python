@@ -1,6 +1,7 @@
 from logging import Logger
 
 from starlette import status
+from starlette.background import BackgroundTask
 from starlette.responses import Response, StreamingResponse, JSONResponse
 
 from sts.config import BucketSettings
@@ -90,7 +91,7 @@ class ThumbnailService:
 
         headers = {HEADER_ETAG: put_result.etag, HEADER_LEN: str(put_result.size)}
         return StreamingResponse(thumbnail.data, media_type=thumbnail.content_type,
-                                 headers=headers)
+                                 headers=headers, background=BackgroundTask(thumbnail.data.close))
 
     async def _get_file_response(self, file_storage_item: StorageFileItem, etag: str | None) -> Response:
         if etag and file_storage_item.etag == etag:
@@ -104,4 +105,5 @@ class ThumbnailService:
             return NOT_FOUND_RESPONSE
 
         headers = {HEADER_ETAG: object_stream.etag, HEADER_LEN: object_stream.content_length}
-        return StreamingResponse(object_stream.read_to_end(), media_type=object_stream.content_type, headers=headers)
+        return StreamingResponse(object_stream.read_to_end(), media_type=object_stream.content_type, headers=headers,
+                                 background=BackgroundTask(object_stream.close))
