@@ -5,7 +5,7 @@ from pydantic import BaseModel, HttpUrl, model_validator, Field
 from pydantic.dataclasses import dataclass
 from pydantic_settings import BaseSettings, SettingsConfigDict, PydanticBaseSettingsSource, JsonConfigSettingsSource
 
-from sts.models import ImageFormat
+from sts.models .enums import ImageFormat
 
 
 @dataclass(frozen=True, slots=True)
@@ -232,6 +232,9 @@ def get_app_settings() -> AppSettings:
     if not _app_settings:
         _app_settings = AppSettings()
     return _app_settings
+
+def create_buckets_map(app_settings: AppSettings) -> BucketsMap:
+    return _get_buckets_map(app_settings)
 
 
 def get_buckets_map() -> BucketsMap:
