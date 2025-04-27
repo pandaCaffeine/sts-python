@@ -2,6 +2,7 @@ from abc import ABC, abstractmethod
 from io import BytesIO
 from typing import Iterable
 
+from pydantic import ConfigDict
 from pydantic.dataclasses import dataclass
 
 from sts.config import BucketSettings
@@ -74,7 +75,7 @@ class StorageResponse(ABC):
         pass
 
 
-@dataclass(frozen=True, slots=True)
+@dataclass(frozen=True, slots=True, config=ConfigDict(arbitrary_types_allowed=True))
 class ImageData:
     content_type: str
     error: Exception | None = None
