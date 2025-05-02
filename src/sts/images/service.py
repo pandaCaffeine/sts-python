@@ -1,12 +1,13 @@
-from logging import Logger
-
 from starlette import status
 from starlette.responses import Response, StreamingResponse, JSONResponse
 
 from sts.config import BucketSettings
-from sts.images.file_storage_scanner import FileStorageScanner, ScanStatus
-from sts.images.image_processor import resize_image
-from sts.images.storage_client import StorageClient, StorageFileItem
+from sts.file_storage.client import FileStorageClient
+from sts.file_storage.scanner import FileStorageScanner
+from sts.images.processor import resize_image
+from sts.logs import ILogger
+from sts.models.enums import ScanStatus
+from sts.models.file_storage import StorageFileItem
 
 HEADER_ETAG = "Etag"
 HEADER_LEN = "Content-Length"
@@ -16,12 +17,12 @@ NOT_FOUND_RESPONSE: JSONResponse = JSONResponse(status_code=status.HTTP_404_NOT_
 
 
 class ThumbnailService:
-    _storage_client: StorageClient
-    _logger: Logger
+    _storage_client: FileStorageClient
+    _logger: ILogger
     _file_storage_scanner: FileStorageScanner
 
-    def __init__(self, storage_client: StorageClient, file_storage_scanner: FileStorageScanner,
-                 logger: Logger):
+    def __init__(self, storage_client: FileStorageClient, file_storage_scanner: FileStorageScanner,
+                 logger: ILogger):
         assert storage_client is not None, "storage_client is required"
         assert logger is not None, "logger is required"
         assert file_storage_scanner, "file_storage_scanner is required"

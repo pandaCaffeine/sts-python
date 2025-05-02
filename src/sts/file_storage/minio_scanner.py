@@ -1,43 +1,15 @@
-from abc import ABC, abstractmethod
-from pydantic.dataclasses import dataclass
-from enum import IntEnum
-
 from sts.config import BucketsMap, BucketSettings
-from sts.images.storage_client import StorageClient, StorageFileItem
+from sts.file_storage.client import FileStorageClient
+from sts.file_storage.scanner import FileStorageScanner
+from sts.models.enums import ScanStatus
+from sts.models.file_storage import ScanResult
 
 
-class ScanStatus(IntEnum):
-    BUCKET_NOT_FOUND = 1
-    SOURCE_FILE_NOT_FOUND = 2
-    USE_SOURCE_FILE = 3
-    FILE_FOUND = 4
-    CREATE_NEW = 5
-
-
-@dataclass(frozen=True, slots=True)
-class ScanResult:
-    status: ScanStatus = ScanStatus.BUCKET_NOT_FOUND
-    source_file_stat: StorageFileItem | None = None
-    file_stat: StorageFileItem | None = None
-    bucket_settings: BucketSettings | None = None
-
-
-class FileStorageScanner(ABC):
-
-    @abstractmethod
-    def scan_file(self, bucket: str, file_name) -> ScanResult:
-        pass
-
-    @abstractmethod
-    def find_bucket_by_alias(self, source_bucket: str, alias: str) -> str | None:
-        pass
-
-
-class FileStorageScannerImpl(FileStorageScanner):
-    _storage_client: StorageClient
+class MinioFileStorageScanner(FileStorageScanner):
+    _storage_client: FileStorageClient
     _buckets_map: BucketsMap
 
-    def __init__(self, storage_client: StorageClient, buckets_map: BucketsMap):
+    def __init__(self, storage_client: FileStorageClient, buckets_map: BucketsMap):
         assert storage_client, "storage_client is required"
         assert buckets_map, "buckets_map is required"
 

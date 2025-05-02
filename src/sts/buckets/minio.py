@@ -1,18 +1,21 @@
-from logging import Logger
+from itertools import chain
 
 from minio import S3Error
 
+import sts.logs
+from sts.buckets.service import BucketService
 from sts.config import AppSettings
-from sts.images.storage_client import StorageClient
-from sts.models import BucketStatus, BucketsInfo
+from sts.file_storage.client import FileStorageClient
+from sts.models.bucket import BucketsInfo
+from sts.models.enums import BucketStatus
 
 
-class BucketsService:
+class MinioBucketService(BucketService):
     _app_settings: AppSettings
-    _storage_client: StorageClient
-    _logger: Logger
+    _storage_client: FileStorageClient
+    _logger: sts.logs.ILogger
 
-    def __init__(self, app_settings: AppSettings, storage_client: StorageClient, l: Logger):
+    def __init__(self, app_settings: AppSettings, storage_client: FileStorageClient, l: sts.logs.ILogger):
         self._app_settings = app_settings
         self._storage_client = storage_client
         self._logger = l
@@ -31,31 +34,27 @@ class BucketsService:
             self._logger.warning(f"Failed to create bucket {bucket_name}", exc_info=e)
             return BucketStatus.error
 
-    @staticmethod
-    def _check_if_result_has_errors(result: BucketsInfo) -> bool:
-        source_buckets_have_errors = any(t == BucketStatus.error for t in result.source_buckets.items())
-        thumbnail_buckets_have_errors = any(t == BucketStatus.error for t in result.thumbnail_buckets.items())
-        return source_buckets_have_errors or thumbnail_buckets_have_errors
-
     def create_buckets(self) -> BucketsInfo:
         self._logger.debug(f"Creating {len(self._app_settings.buckets)} buckets")
-        result = BucketsInfo(thumbnail_buckets=dict(), source_buckets=dict(), error=True)
 
         if len(self._app_settings.buckets) == 0:
             self._logger.warning("No buckets were configured, skip it")
-            return result
+            return BucketsInfo()
 
+        source_buckets = dict[str, BucketStatus]()
+        thumbnail_buckets = dict[str, BucketStatus]()
         default_source_bucket = self._app_settings.source_bucket
         if default_source_bucket:
-            result.source_buckets[default_source_bucket] = self._create_bucket(default_source_bucket, 0)
+            source_buckets[default_source_bucket] = self._create_bucket(default_source_bucket, 0)
 
         for bucket_name, bucket_settings in self._app_settings.buckets.items():
             life_time_days = self._app_settings.buckets[bucket_name].life_time_days
-            result.thumbnail_buckets[bucket_name] = self._create_bucket(bucket_name, life_time_days)
+            thumbnail_buckets[bucket_name] = self._create_bucket(bucket_name, life_time_days)
 
             source_bucket = bucket_settings.source_bucket
             if source_bucket and source_bucket != default_source_bucket:
-                result.source_buckets[source_bucket] = self._create_bucket(bucket_settings.source_bucket, 0)
+                source_buckets[source_bucket] = self._create_bucket(bucket_settings.source_bucket, 0)
 
-        result.error = self._check_if_result_has_errors(result)
-        return result
+        bucket_status_collection = chain(thumbnail_buckets.values(), source_buckets.values())
+        error = any(t == BucketStatus.error for t in bucket_status_collection)
+        return BucketsInfo(source_buckets=source_buckets, thumbnail_buckets=thumbnail_buckets, error=error)
