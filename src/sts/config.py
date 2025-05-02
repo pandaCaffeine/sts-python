@@ -5,7 +5,7 @@ from pydantic import BaseModel, HttpUrl, model_validator, Field
 from pydantic.dataclasses import dataclass
 from pydantic_settings import BaseSettings, SettingsConfigDict, PydanticBaseSettingsSource, JsonConfigSettingsSource
 
-from sts.models .enums import ImageFormat
+from sts.models.enums import ImageFormat
 
 
 @dataclass(frozen=True, slots=True)

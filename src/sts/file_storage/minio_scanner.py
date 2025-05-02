@@ -1,6 +1,6 @@
 from sts.config import BucketsMap, BucketSettings
-from sts.file_storage.scanner import FileStorageScanner
 from sts.file_storage.client import FileStorageClient
+from sts.file_storage.scanner import FileStorageScanner
 from sts.models.enums import ScanStatus
 from sts.models.file_storage import ScanResult
 

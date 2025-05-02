@@ -1,11 +1,11 @@
 from starlette import status
 from starlette.responses import Response, StreamingResponse, JSONResponse
 
-from sts.logs import ILogger
 from sts.config import BucketSettings
 from sts.file_storage.client import FileStorageClient
 from sts.file_storage.scanner import FileStorageScanner
 from sts.images.processor import resize_image
+from sts.logs import ILogger
 from sts.models.enums import ScanStatus
 from sts.models.file_storage import StorageFileItem
 

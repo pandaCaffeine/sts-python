@@ -4,8 +4,8 @@ from typing import Any
 import PIL
 from PIL import Image, ImageFile
 
-from sts.models.file_storage import ImageData
 from sts.models.enums import ImageFormat
+from sts.models.file_storage import ImageData
 
 _default_params: dict[str, Any] = {'optimize': True}
 _format_modes: dict[ImageFormat, str] = {

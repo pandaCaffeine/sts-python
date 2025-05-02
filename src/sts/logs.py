@@ -1,5 +1,5 @@
 import sys
-from typing import Protocol, overload, Any
+from typing import Protocol, Any
 
 from loguru import logger
 
