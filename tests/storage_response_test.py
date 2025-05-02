@@ -1,9 +1,6 @@
-import os
-from io import BytesIO
-
 from urllib3 import HTTPResponse
 
-from sts.images.storage_client import _StorageResponse
+from sts.file_storage.minio_client import _MinioStorageResponse
 
 _expected_content_length = '1024'
 _expected_content_type = 'image/png'
@@ -18,7 +15,7 @@ _fake_response = HTTPResponse(body='', headers={'content-length': _expected_cont
 
 def test_storage_response_init_successful():
     # act
-    storage_response = _StorageResponse(_fake_response)
+    storage_response = _MinioStorageResponse(_fake_response)
 
     # assert
     assert storage_response.etag == _expected_etag
