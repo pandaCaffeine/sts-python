@@ -1,5 +1,5 @@
 from sts.config import get_app_settings, get_buckets_map, ImageSize, BucketSettings
-from sts.models import ImageFormat
+from sts.models.enums import ImageFormat
 
 
 def _assert_that_bucket_settings_are_equal(expected: BucketSettings, actual: BucketSettings):
