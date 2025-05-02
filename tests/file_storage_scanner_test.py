@@ -45,7 +45,7 @@ def test_file_storage_use_source_file():
 
 
 def test_file_storage_file_found():
-    def side_effect(*args, **kwargs):
+    def side_effect(*args):
         if args[1] == 'icon.png' and args[0] == 'images':
             return StorageFileItem(file_name='icon.png', etag='valid', bucket='images', size=1, parent_etag=None,
                                    content_type='image/png')
