@@ -1,22 +1,21 @@
-from logging import Logger
-
 import fastapi
 import loguru
 from dishka import make_container, Provider, Scope, AnyOf
 from dishka.integrations.fastapi import FastapiProvider
 from minio import Minio
 
-from sts.buckets.service import BucketService
 from sts.buckets.minio import MinioBucketService
+from sts.buckets.service import BucketService
 from sts.config import AppSettings, BucketsMap, create_buckets_map, S3Settings
-from sts.healthcheck.reader import HealthCheckReader
-from sts.healthcheck.writer import HealthCheckWriter
-from sts.healthcheck.service import HealthCheckService
-from sts.file_storage.scanner import FileStorageScanner
-from sts.file_storage.minio_scanner import MinioFileStorageScanner
-from sts.file_storage.minio_client import MinioFileStorageClient
 from sts.file_storage.client import FileStorageClient
+from sts.file_storage.minio_client import MinioFileStorageClient
+from sts.file_storage.minio_scanner import MinioFileStorageScanner
+from sts.file_storage.scanner import FileStorageScanner
+from sts.healthcheck.reader import HealthCheckReader
+from sts.healthcheck.service import HealthCheckService
+from sts.healthcheck.writer import HealthCheckWriter
 from sts.images.service import ThumbnailService
+from sts.logs import ILogger
 
 
 def _provide_app_config() -> AppSettings:
@@ -41,7 +40,7 @@ def _provide_storage_client(minio: Minio) -> FileStorageClient:
     return MinioFileStorageClient(minio)
 
 
-def _provide_request_logger(req: fastapi.Request) -> loguru.Logger:
+def _provide_request_logger(req: fastapi.Request) -> ILogger:
     return loguru.logger.bind(path=req.base_url.path)
 
 
@@ -50,7 +49,7 @@ def _provide_file_storage_scanner(storage_client: FileStorageClient, buckets_map
 
 
 def _provide_thumbnail_service(storage_client: FileStorageClient, file_storage_scanner: FileStorageScanner,
-                               req_logger: Logger) -> ThumbnailService:
+                               req_logger: ILogger) -> ThumbnailService:
     return ThumbnailService(storage_client, file_storage_scanner, req_logger)
 
 
@@ -63,14 +62,17 @@ def _provide_bucket_service(app_settings: AppSettings, storage_client: FileStora
 
 
 _provider = Provider()
+# application scope
 _provider.provide(_provide_app_config, scope=Scope.APP)
 _provider.provide(_provide_buckets_map, scope=Scope.APP)
 _provider.provide(_provide_s3_settings, scope=Scope.APP)
 _provider.provide(_provide_storage_client, scope=Scope.APP)
+_provider.provide(_provide_hc_service, scope=Scope.APP)
+_provider.provide(_provide_minio_client, scope=Scope.APP)
+_provider.provide(_provide_bucket_service, scope=Scope.APP)
+# request scope
 _provider.provide(_provide_request_logger, scope=Scope.REQUEST)
 _provider.provide(_provide_file_storage_scanner, scope=Scope.REQUEST)
 _provider.provide(_provide_thumbnail_service, scope=Scope.REQUEST)
-_provider.provide(_provide_hc_service, scope=Scope.APP)
-_provider.provide(_provide_bucket_service, scope=Scope.REQUEST)
 
 container = make_container(_provider, FastapiProvider())

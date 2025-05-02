@@ -2,6 +2,7 @@ from logging import Logger
 from minio import S3Error
 from itertools import chain
 
+import sts.logs
 from sts.buckets.service import BucketService
 from sts.config import AppSettings
 from sts.file_storage.client import FileStorageClient
@@ -12,9 +13,9 @@ from sts.models.bucket import BucketsInfo
 class MinioBucketService(BucketService):
     _app_settings: AppSettings
     _storage_client: FileStorageClient
-    _logger: Logger
+    _logger: sts.logs.ILogger
 
-    def __init__(self, app_settings: AppSettings, storage_client: FileStorageClient, l: Logger):
+    def __init__(self, app_settings: AppSettings, storage_client: FileStorageClient, l: sts.logs.ILogger):
         self._app_settings = app_settings
         self._storage_client = storage_client
         self._logger = l
