@@ -2,7 +2,7 @@
 
 # Simple Thumbnail Service (sts)
 
-Current version: `1.4`
+Current version: `2.0`
 
 The microservice serves thumbnail images in `minio` and does some ✨magic for you:
 
@@ -26,7 +26,7 @@ The microservice serves thumbnail images in `minio` and does some ✨magic for y
 
 ## Installation
 
-Use docker image `pandacaffeine/sts:1.2.0` in your docker environment or docker-compose.
+Use docker image `pandacaffeine/sts:2.0` in your docker environment or docker-compose.
 
 ## Algorithm
 
