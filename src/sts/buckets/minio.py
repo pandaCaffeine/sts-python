@@ -1,13 +1,13 @@
-from logging import Logger
-from minio import S3Error
 from itertools import chain
+
+from minio import S3Error
 
 import sts.logs
 from sts.buckets.service import BucketService
 from sts.config import AppSettings
 from sts.file_storage.client import FileStorageClient
-from sts.models.enums import BucketStatus
 from sts.models.bucket import BucketsInfo
+from sts.models.enums import BucketStatus
 
 
 class MinioBucketService(BucketService):

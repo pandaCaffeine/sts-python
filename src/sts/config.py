@@ -112,7 +112,7 @@ class AppSettings(BaseSettings):
     log_level: str = 'info'
     """ Logging level. Options: critical, error, warning, info, debug, trace. Default: info """
 
-    log_fmt: str = "{time} | {level}: {extra} {message}"
+    log_fmt: str = "[{process}] {time} | {level}: {extra} {message}"
     """ Logging message format """
 
     size: ImageSize = ImageSize()
