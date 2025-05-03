@@ -1,8 +1,8 @@
 from io import BytesIO
 from PIL import Image
 
-from sts.images.image_processor import resize_image
-from sts.models import ImageFormat
+from sts.images.processor import resize_image
+from sts.models.enums import ImageFormat
 
 
 _mime_png = 'image/png'

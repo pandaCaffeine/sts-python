@@ -9,7 +9,7 @@ from minio import Minio, S3Error
 from minio.helpers import ObjectWriteResult
 from urllib3 import HTTPResponse, HTTPHeaderDict
 
-from sts.images.storage_client import S3StorageClient
+from sts.file_storage.minio_client import MinioFileStorageClient
 
 _expected_content_length = '1024'
 _expected_content_type = 'image/png'
@@ -33,7 +33,7 @@ def test_open_stream_successful():
     minio_mock = create_autospec(Minio)
     minio_mock.get_object.return_value = _fake_response
 
-    storage_client = S3StorageClient(minio_mock)
+    storage_client = MinioFileStorageClient(minio_mock)
 
     # act
     result = storage_client.open_stream('images', 'icon.png')
@@ -51,7 +51,7 @@ def test_open_stream_returns_none_when_s3_error():
     minio_mock.get_object.side_effect = S3Error('unit-test', 'unit test error', None, None, None,
                                                 response=_fake_response)
 
-    storage_client = S3StorageClient(minio_mock)
+    storage_client = MinioFileStorageClient(minio_mock)
 
     # act
     result = storage_client.open_stream('images', 'icon.png')
@@ -65,7 +65,7 @@ def test_open_stream_returns_none_when_exception():
     minio_mock = create_autospec(Minio)
     minio_mock.get_object.side_effect = ValueError('unit test error')
 
-    storage_client = S3StorageClient(minio_mock)
+    storage_client = MinioFileStorageClient(minio_mock)
 
     # act & assert
     with pytest.raises(ValueError):
@@ -76,7 +76,7 @@ def test_try_create_dir_does_nothing_if_bucket_exits():
     # arrange
     minio_mock = create_autospec(Minio)
     minio_mock.bucket_exists.return_value = True
-    storage_client = S3StorageClient(minio_mock)
+    storage_client = MinioFileStorageClient(minio_mock)
 
     # act
     result = storage_client.try_create_bucket('test', 30)
@@ -90,7 +90,7 @@ def test_try_create_dir_successful():
     minio_mock = create_autospec(Minio)
     minio_mock.bucket_exists.return_value = False
     minio_mock.make_bucket = Mock(return_value=None)
-    storage_client = S3StorageClient(minio_mock)
+    storage_client = MinioFileStorageClient(minio_mock)
 
     # act
     result = storage_client.try_create_bucket('test', 30)
@@ -105,7 +105,7 @@ def test_get_file_stat_returns_none():
     # arrange
     minio_mock = create_autospec(Minio)
     minio_mock.stat_object.return_value = None
-    storage_client = S3StorageClient(minio_mock)
+    storage_client = MinioFileStorageClient(minio_mock)
 
     # act
     result = storage_client.get_file_stat('images', 'icon.png')
@@ -120,7 +120,7 @@ def test_get_file_stat_successful():
                                                content_type=_expected_content_type)
     minio_mock = create_autospec(Minio)
     minio_mock.stat_object.return_value = fake_minio_object
-    storage_client = S3StorageClient(minio_mock)
+    storage_client = MinioFileStorageClient(minio_mock)
 
     # act
     result = storage_client.get_file_stat('images', 'icon.png')
@@ -134,7 +134,7 @@ def test_get_file_stat_returns_none_when_s3_error():
     minio_mock = create_autospec(Minio)
     minio_mock.stat_object.side_effect = S3Error('unit-test', 'unit test error', None, None, None,
                                                  response=_fake_response)
-    storage_client = S3StorageClient(minio_mock)
+    storage_client = MinioFileStorageClient(minio_mock)
 
     # act
     result = storage_client.get_file_stat('images', 'icon.png')
@@ -152,7 +152,7 @@ def test_put_file_successful(expected_parent_etag: str | None):
     minio_mock = create_autospec(Minio)
     minio_mock.put_object.return_value = ObjectWriteResult(expected_bucket_name, expected_object_name, None,
                                                            etag=_expected_etag, http_headers=HTTPHeaderDict())
-    storage_client = S3StorageClient(minio_mock)
+    storage_client = MinioFileStorageClient(minio_mock)
     file_memory = __read_file('test.png')
     file_memory.seek(0, os.SEEK_END)
     expected_size = file_memory.tell()
@@ -177,7 +177,7 @@ def test_load_file_returns_none_when_s3_error():
     minio_mock = create_autospec(Minio)
     minio_mock.get_object.side_effect = S3Error('unit-test', 'unit test error', None, None, None,
                                                 response=_fake_response)
-    storage_client = S3StorageClient(minio_mock)
+    storage_client = MinioFileStorageClient(minio_mock)
 
     # act
     result = storage_client.load_file('images', 'icon.png')
@@ -189,7 +189,7 @@ def test_load_file_fails_when_error():
     # arrange
     minio_mock = create_autospec(Minio)
     minio_mock.get_object.side_effect = ValueError('unit test error')
-    storage_client = S3StorageClient(minio_mock)
+    storage_client = MinioFileStorageClient(minio_mock)
 
     # act & assert
     with pytest.raises(ValueError):
@@ -204,7 +204,7 @@ def test_load_file_successful():
     minio_mock = create_autospec(Minio)
     minio_mock.get_object.return_value = HTTPResponse(fake_file, None, 200, 1, 'HTTP/1.0',
                                                       None)
-    storage_client = S3StorageClient(minio_mock)
+    storage_client = MinioFileStorageClient(minio_mock)
 
     # act
     result = storage_client.load_file('images', 'icon.png')

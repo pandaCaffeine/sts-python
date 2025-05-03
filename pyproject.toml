@@ -8,14 +8,15 @@ readme = "README.md"
 
 [tool.poetry.dependencies]
 python = "==3.13.2"
-fastapi = "==0.115.11"
+fastapi = "==0.115.12"
 loguru = "==0.7.3"
 minio = "==7.2.15"
-pillow = "==11.1.0"
-pydantic = "==2.10.6"
-pydantic-settings = "==2.8.1"
-poetry-core = "^2.1.1"
-uvicorn = "^0.34.0"
+pillow = "==11.2.1"
+pydantic = "==2.11.3"
+pydantic-settings = "==2.9.1"
+poetry-core = "==2.1.2"
+uvicorn = "==0.34.2"
+dishka = "==1.5.3"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "==8.3.4"
