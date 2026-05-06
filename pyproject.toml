@@ -7,7 +7,7 @@ license = "MIT"
 readme = "README.md"
 
 [tool.poetry.dependencies]
-python = "==3.13.2"
+python = "==3.13.12"
 fastapi = "==0.115.12"
 loguru = "==0.7.3"
 minio = "==7.2.15"
