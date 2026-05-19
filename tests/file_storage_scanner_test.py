@@ -8,9 +8,9 @@ from sts.models.file_storage import StorageFileItem
 
 _buckets = {
     'images': BucketSettings(source_bucket='images', size=ImageSize()),
-    'thumbnail-small': BucketSettings(size=ImageSize(100, 100), source_bucket='images', alias='small',
+    'thumbnail-small': BucketSettings(size=ImageSize(w=100, h=100), source_bucket='images', alias='small',
                                       life_time_days=30),
-    'thumbnail-medium': BucketSettings(size=ImageSize(300, 300), source_bucket='images', alias='medium',
+    'thumbnail-medium': BucketSettings(size=ImageSize(w=300, h=300), source_bucket='images', alias='medium',
                                        life_time_days=30)}
 _buckets_map = BucketsMap(source_bucket="images", buckets=_buckets,
                           alias_map={'small': 'thumbnail-small', 'medium': 'thumbnail-medium'},
