@@ -1,62 +1,107 @@
+"""
+Image processing utilities for thumbnail generation and format conversion.
+"""
+
+from __future__ import annotations
+
 from io import BytesIO
 from typing import Any
 
-import PIL
-from PIL import Image, ImageFile
+from PIL import Image
 
 from sts.models.enums import ImageFormat
 from sts.models.file_storage import ImageData
 
-_default_params: dict[str, Any] = {'optimize': True}
-_format_modes: dict[ImageFormat, str] = {
-    ImageFormat.JPEG: 'RGB',
-    ImageFormat.PNG: 'P'
+# Default compression parameters for image saving
+_DEFAULT_SAVE_PARAMS: dict[str, Any] = {"optimize": True}
+
+# PIL color mode mapping for target image formats
+_FORMAT_MODES: dict[ImageFormat, str] = {
+    ImageFormat.JPEG: "RGB",
+    ImageFormat.PNG: "P",
 }
 
 
-def _try_convert_image(source_image: PIL.ImageFile.ImageFile, new_mode: str) -> PIL.Image.Image:
-    if source_image.mode == new_mode:
-        return source_image
+def _convert_image_mode(
+        source_image: Image.Image,
+        target_mode: str
+) -> Image.Image | None:
+    """
+    Convert image to specified color mode if necessary.
 
-    new_image: PIL.Image.Image | None = None
+    Returns the converted image or None if conversion is not needed.
+    Preserves the source image if conversion fails.
+    """
+    if source_image.mode == target_mode:
+        return None
+
     try:
-        new_image = source_image.convert(new_mode)
-        if source_image != new_image:
-            source_image.close()
-
-        return new_image
-    except (ValueError, Exception):
-        if new_image:
-            new_image.close()
-        return source_image
+        converted = source_image.convert(target_mode)
+        return converted
+    except (ValueError, OSError):
+        return None
 
 
-def resize_image(data: BytesIO,
-                 width: int,
-                 height: int,
-                 image_format: ImageFormat = ImageFormat.NONE,
-                 params: dict[str, Any] | None = None) -> ImageData:
-    assert data is not None, "data cannot be None"
-    assert width > 0, "width must be greater than 0"
-    assert height > 0, "height must be greater than 0"
-
-    save_params = params or _default_params
-
-    with data:
+def _safe_close_image(image: Image.Image | None) -> None:
+    """Safely close an image if it has a close method."""
+    if image is not None and hasattr(image, "close"):
         try:
-            with Image.open(data) as im:
-                mime_type = im.get_format_mimetype()
-                new_size: tuple[float, float] = (float(width), float(height))
-                im.thumbnail(new_size)
+            image.close()
+        except Exception:
+            pass
 
-                if image_format != ImageFormat.NONE:
-                    dest_mode = _format_modes[image_format]
-                    im = _try_convert_image(im, dest_mode)
-                    im.format = str(image_format)
-                    mime_type = Image.MIME.get(im.format.upper())
 
-                result = BytesIO()
-                im.save(result, im.format, **save_params)
-                return ImageData(content_type=mime_type, error=None, data=result)
-        except (PIL.UnidentifiedImageError, ValueError, TypeError, Exception) as e:
-            return ImageData(content_type=mime_type, error=e, data=None)
+def resize_image(
+        data: BytesIO,
+        width: int,
+        height: int,
+        image_format: ImageFormat = ImageFormat.NONE,
+        params: dict[str, Any] | None = None,
+) -> ImageData:
+    """
+    Resize image data to specified dimensions.
+
+    Args:
+        data: Input image data as BytesIO stream.
+        width: Target width in pixels (must be > 0).
+        height: Target height in pixels (must be > 0).
+        image_format: Optional target format conversion.
+        params: Optional parameters passed to PIL save method.
+
+    Returns:
+        ImageData with resized image or error information.
+    """
+
+    if width <= 0:
+        raise ValueError("width must be > 0")
+
+    if height <= 0:
+        raise ValueError("height must be > 0")
+
+    save_params = params or _DEFAULT_SAVE_PARAMS
+    result_image: Image.Image | None = None
+
+    try:
+        with Image.open(data) as source:
+            mime_type = source.get_format_mimetype() or ""
+            source.thumbnail((width, height))
+            result_image = source
+
+            if image_format != ImageFormat.NONE:
+                mode = _FORMAT_MODES.get(image_format)
+                if mode:
+                    converted = _convert_image_mode(source, mode)
+                    result_image = converted or result_image
+                    if converted is not None:
+                        source.close()
+
+            assert result_image is not None, "result_image should be assigned before"
+            result_image.format = str(image_format.value)
+            mime_type = Image.MIME.get(image_format.value.upper(), mime_type)
+
+            output = BytesIO()
+            result_image.save(output, result_image.format, **save_params)
+            return ImageData(content_type=mime_type, error=None, data=output)
+    except Exception as e:
+        _safe_close_image(result_image)
+        return ImageData(content_type=mime_type, error=e, data=None)
