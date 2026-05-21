@@ -93,10 +93,10 @@ def resize_image(
                     converted = _convert_image_mode(source, mode)
                     result_image = converted or result_image
                     if converted is not None:
+                        result_image.format = str(image_format.value)
                         source.close()
 
             assert result_image is not None, "result_image should be assigned before"
-            result_image.format = str(image_format.value)
             mime_type = Image.MIME.get(image_format.value.upper(), mime_type)
 
             output = BytesIO()

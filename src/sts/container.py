@@ -4,10 +4,9 @@ Dependency injection container configuration using Dishka.
 This module sets up the dependency injection container for the application,
 organizing providers into APP and REQUEST scopes for optimal resource management.
 """
-
 import fastapi
 import loguru
-from dishka import make_container, Provider, Scope, Container
+from dishka import make_container, Provider, Scope, Container, AnyOf
 from dishka.integrations.fastapi import FastapiProvider
 from minio import Minio
 
@@ -18,7 +17,9 @@ from sts.file_storage.client import FileStorageClient
 from sts.file_storage.minio_client import MinioFileStorageClient
 from sts.file_storage.minio_scanner import MinioFileStorageScanner
 from sts.file_storage.scanner import FileStorageScanner
+from sts.healthcheck.reader import HealthCheckReader
 from sts.healthcheck.service import HealthCheckService
+from sts.healthcheck.writer import HealthCheckWriter
 from sts.images.service import ThumbnailService
 from sts.logs import ILogger
 
@@ -77,7 +78,7 @@ def _provide_thumbnail_service(
     return ThumbnailService(storage_client, file_storage_scanner, logger)
 
 
-def _provide_healthcheck_service() -> HealthCheckService:
+def _provide_healthcheck_service() -> AnyOf[HealthCheckReader, HealthCheckWriter]:
     """Provide health check service implementing reader and writer interfaces."""
     return HealthCheckService()
 
