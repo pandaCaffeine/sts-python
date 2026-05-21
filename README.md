@@ -1,8 +1,8 @@
-<img src="assets/logo.png">
+<img alt="logo" width="128" src="assets/logo.png"/>
 
 # Simple Thumbnail Service (sts)
 
-Current version: `2.0`
+Current version: `2.0.2`
 
 The microservice serves thumbnail images in `minio` and does some ✨magic for you:
 
@@ -221,7 +221,7 @@ configuration:
 Let's imagine that we have some web application on host `office.net`, and additional host `images.office.net` which
 serves image files for a client:
 
-<img src="assets/example_scheme.png">
+<img alt="example scheme" src="assets/example_scheme.png">
 
 In the given example `backend` serves all user requests (API) and manipulates `images` bucket (which stores original
 image files) while `sts` can read files from `images` bucket and creates thumbnails for the source images.
