@@ -11,6 +11,22 @@ from sts.file_storage.scanner import FileStorageScanner
 from sts.models.enums import ScanStatus
 from sts.models.file_storage import ScanResult, StorageFileItem
 
+# Some inner helper methods and fields
+_BUCKET_NOT_FOUND = ScanResult(status=ScanStatus.BUCKET_NOT_FOUND)
+_FILE_NOT_FOUND = ScanResult(status=ScanStatus.SOURCE_FILE_NOT_FOUND)
+
+
+def _use_source_file(source_file_stat: StorageFileItem) -> ScanResult:
+    return ScanResult(status=ScanStatus.USE_SOURCE_FILE, source_file_stat=source_file_stat)
+
+
+def _file_found(source_file_stat: StorageFileItem, file_stat: StorageFileItem) -> ScanResult:
+    return ScanResult(status=ScanStatus.FILE_FOUND, source_file_stat=source_file_stat, file_stat=file_stat)
+
+
+def _create_new_file(source_file_stat: StorageFileItem, bucket: BucketSettings) -> ScanResult:
+    return ScanResult(status=ScanStatus.CREATE_NEW, source_file_stat=source_file_stat, bucket_settings=bucket)
+
 
 class MinioFileStorageScanner(FileStorageScanner):
     """
@@ -64,11 +80,11 @@ class MinioFileStorageScanner(FileStorageScanner):
         """
         bucket_settings = self._get_bucket_settings(bucket)
         if not bucket_settings:
-            return ScanResult(status=ScanStatus.BUCKET_NOT_FOUND)
+            return _BUCKET_NOT_FOUND
 
         source_stat = self._storage_client.get_file_stat(bucket_settings.source_bucket, file_name)
         if not source_stat:
-            return ScanResult(status=ScanStatus.SOURCE_FILE_NOT_FOUND)
+            return _FILE_NOT_FOUND
 
         return self._determine_scan_result(bucket, file_name, source_stat, bucket_settings)
 
@@ -79,13 +95,13 @@ class MinioFileStorageScanner(FileStorageScanner):
                                bucket_settings: BucketSettings) -> ScanResult:
         """Determine final scan result based on bucket type and thumbnail state."""
         if bucket == bucket_settings.source_bucket:
-            return ScanResult(status=ScanStatus.USE_SOURCE_FILE, source_file_stat=source_stat)
+            return _use_source_file(source_stat)
 
         thumbnail_stat = self._storage_client.get_file_stat(bucket, file_name)
         if thumbnail_stat and thumbnail_stat.parent_etag == source_stat.etag:
-            return ScanResult(status=ScanStatus.FILE_FOUND, source_file_stat=source_stat, )
+            return _file_found(source_stat, thumbnail_stat)
 
-        return ScanResult(status=ScanStatus.CREATE_NEW, source_file_stat=source_stat)
+        return _create_new_file(source_stat, bucket_settings)
 
     def _get_bucket_settings(self, bucket: str) -> BucketSettings | None:
         """Get bucket settings for given bucket name."""
