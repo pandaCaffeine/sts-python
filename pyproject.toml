@@ -14,13 +14,14 @@ minio = "==7.2.15"
 pillow = "==11.2.1"
 pydantic = "==2.11.3"
 pydantic-settings = "==2.9.1"
-poetry-core = "==2.1.2"
+poetry-core = "==2.4.0"
 uvicorn = "==0.34.2"
 dishka = "==1.5.3"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "==8.3.4"
 mypy = "==1.14.1"
+pyrefly= "==1.0.0"
 
 [build-system]
 requires = ["poetry-core"]

@@ -104,5 +104,5 @@ class ThumbnailService:
         if not object_stream:
             return NOT_FOUND_RESPONSE
 
-        headers = {HEADER_ETAG: object_stream.etag, HEADER_LEN: object_stream.content_length}
+        headers = {HEADER_ETAG: object_stream.etag, HEADER_LEN: str(object_stream.content_length)}
         return StreamingResponse(object_stream.read_to_end(), media_type=object_stream.content_type, headers=headers)

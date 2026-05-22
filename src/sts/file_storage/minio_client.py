@@ -15,19 +15,22 @@ KEY_PARENT_ETAG: str = "x-amz-meta-parent-etag"
 
 
 class _MinioStorageResponse(StorageResponse):
-    _http_response: BaseHTTPResponse | None
-    _content_length: str
+    _http_response: BaseHTTPResponse | None = None
+    _content_length: int
     _content_type: str
     _etag: str
-    __slots__ = ['_content_length', '_http_response', '_content_type', '_etag']
 
     def __init__(self, http_response: BaseHTTPResponse):
-        assert http_response, "http_response is required"
+        if not http_response:
+            raise ValueError("http_response is required")
+
+        if not http_response.headers:
+            raise ValueError("http_response headers is required")
 
         self._http_response = http_response
-        self._content_length = self._http_response.headers['content-length']
-        self._content_type = self._http_response.headers['content-type']
-        self._etag = self._http_response.headers['etag']
+        self._content_length = int(self._http_response.headers.get('content-length') or "")
+        self._content_type = self._http_response.headers['content-type'] or ""
+        self._etag = self._http_response.headers['etag'] or ""
         if self._etag:
             self._etag = self._etag.replace('"', '')
 
@@ -35,7 +38,7 @@ class _MinioStorageResponse(StorageResponse):
         assert self._http_response, "error when access http_response"
         return self._http_response.stream()
 
-    def __exit__(self, exc_type, exc_val, exc_tb):
+    def __exit__(self, exc_type, exc_val, exc_tb) -> None:
         self.close()
 
     def read_to_end(self) -> Iterable[bytes]:
@@ -52,7 +55,7 @@ class _MinioStorageResponse(StorageResponse):
         http_response.release_conn()
 
     @property
-    def content_length(self) -> str:
+    def content_length(self) -> int:
         return self._content_length
 
     @property
@@ -77,15 +80,12 @@ class MinioFileStorageClient(FileStorageClient):
         try:
             response = self._minio_client.get_object(bucket, file_name)
             return _MinioStorageResponse(response)
-        except S3Error:
+        except (S3Error, Exception) as e:
             if response:
                 response.close()
                 response.release_conn()
-            return None
-        except Exception as e:
-            if response:
-                response.close()
-                response.release_conn()
+            if isinstance(e, S3Error):
+                return None
             raise e
 
     def try_create_bucket(self, bucket: str, life_time_days: int) -> bool:

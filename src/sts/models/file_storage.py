@@ -61,7 +61,7 @@ class StorageResponse(ABC):
 
     @property
     @abstractmethod
-    def content_length(self) -> str:
+    def content_length(self) -> int:
         pass
 
     @property
