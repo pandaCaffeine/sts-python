@@ -1,4 +1,5 @@
 import os
+import shutil
 from collections.abc import Iterable
 from io import BytesIO
 
@@ -30,9 +31,7 @@ class _MinioStorageResponse(StorageResponse):
         self._http_response = http_response
         self._content_length = int(self._http_response.headers.get('content-length') or "")
         self._content_type = self._http_response.headers['content-type'] or ""
-        self._etag = self._http_response.headers['etag'] or ""
-        if self._etag:
-            self._etag = self._etag.replace('"', '')
+        self._etag = (self._http_response.headers['etag'] or "").replace('"', '')
 
     def __enter__(self) -> Iterable[bytes]:
         assert self._http_response, "error when access http_response"
@@ -71,9 +70,11 @@ class MinioFileStorageClient(FileStorageClient):
     _minio_client: Minio
 
     def __init__(self, minio: Minio):
-        assert minio is not None, "Minio client is required"
-
+        if not minio:
+            raise ValueError("minio must be provided")
         self._minio_client = minio
+
+    # --- Reading ---
 
     def open_stream(self, bucket: str, file_name: str) -> StorageResponse | None:
         response: BaseHTTPResponse | None = None
@@ -87,22 +88,6 @@ class MinioFileStorageClient(FileStorageClient):
                 response.close()
                 response.release_conn()
             raise
-
-    def try_create_bucket(self, bucket: str, life_time_days: int) -> bool:
-        if self._minio_client.bucket_exists(bucket):
-            return False
-
-        self._minio_client.make_bucket(bucket)
-
-        if life_time_days > 0:
-            ttl_config = LifecycleConfig(
-                [
-                    Rule(ENABLED, rule_id="stsTtlRule", expiration=Expiration(days=life_time_days),
-                         rule_filter=Filter(prefix=""))
-                ]
-            )
-            self._minio_client.set_bucket_lifecycle(bucket, ttl_config)
-        return True
 
     def get_file_stat(self, bucket: str, file_name: str) -> StorageFileItem | None:
         try:
@@ -121,55 +106,81 @@ class MinioFileStorageClient(FileStorageClient):
         except S3Error:
             return None
 
+    def load_file(self, bucket: str, file_name: str) -> BytesIO | None:
+        response: BaseHTTPResponse | None = None
+        try:
+            response = self._minio_client.get_object(bucket, file_name)
+            return self._load_response_to_memory(response)
+        except S3Error:
+            return None
+        except Exception:
+            if response:
+                response.close()
+                response.release_conn()
+            raise
+
+    # --- Writing ---
+
     def put_file(self, bucket: str, file_name: str, content: BytesIO, content_type: str,
                  reset_content: bool = True, parent_etag: str | None = None) -> StorageFileItem:
         if not content:
             raise ValueError("content is required")
 
-        # read content length
         content.seek(0, os.SEEK_END)
         content_length = content.tell()
-
         # seek to the start to put file
         content.seek(0, os.SEEK_SET)
 
-        metadata: DictType | None = None
-        if parent_etag:
-            metadata = {KEY_PARENT_ETAG: parent_etag}
-        result = self._minio_client.put_object(bucket, file_name, content, content_length, content_type=content_type,
-                                               metadata=metadata)
+        metadata: DictType | None = {KEY_PARENT_ETAG: parent_etag} if parent_etag else None
+        result = self._minio_client.put_object(
+            bucket_name=bucket,
+            object_name=file_name,
+            data=content,
+            length=content_length,
+            content_type=content_type,
+            metadata=metadata,
+        )
         if reset_content:
             content.seek(0, os.SEEK_SET)
-        return StorageFileItem(bucket=bucket, file_name=result.object_name, content_type=content_type,
-                               size=content_length, etag=result.etag or "", parent_etag=parent_etag)
 
-    def load_file(self, bucket: str, file_name: str) -> BytesIO | None:
-        result = BytesIO()
-        http_response: BaseHTTPResponse | None = None
-        try:
-            http_response = self._minio_client.get_object(bucket, file_name)
-            result = self._load_response_to_memory(http_response)
-            return result
-        except S3Error:
-            result.close()
-            return None
-        except Exception as e:
-            result.close()
-            raise e
-        finally:
-            if http_response:
-                http_response.close()
-                http_response.release_conn()
+        return StorageFileItem(
+            bucket=bucket,
+            file_name=result.object_name,
+            content_type=content_type,
+            size=content_length,
+            etag=result.etag or "",
+            parent_etag=parent_etag,
+        )
+
+    # --- Bucket management --
+
+    def try_create_bucket(self, bucket: str, life_time_days: int) -> bool:
+        if self._minio_client.bucket_exists(bucket):
+            return False
+
+        self._minio_client.make_bucket(bucket)
+
+        if life_time_days > 0:
+            ttl_config = LifecycleConfig([
+                Rule(ENABLED,
+                     rule_id="stsTtlRule",
+                     expiration=Expiration(days=life_time_days),
+                     rule_filter=Filter(prefix="")
+                     )
+            ])
+            self._minio_client.set_bucket_lifecycle(bucket, ttl_config)
+
+        return True
+
+    # --- Helpers ---
 
     @staticmethod
     def _load_response_to_memory(response: BaseHTTPResponse) -> BytesIO:
-        result = BytesIO()
+        buf = BytesIO()
         try:
-            stream = response.stream()
-            for chunk in stream:
-                result.write(chunk)
-            result.seek(0, os.SEEK_SET)
-            return result
+            shutil.copyfileobj(response, buf)
+            buf.seek(0, os.SEEK_END)
         finally:
             response.close()
             response.release_conn()
+        return buf

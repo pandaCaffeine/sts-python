@@ -80,10 +80,11 @@ def resize_image(
 
     save_params = params or _DEFAULT_SAVE_PARAMS
     result_image: Image.Image | None = None
+    mime_type = ""
 
     try:
         with Image.open(data) as source:
-            mime_type = source.get_format_mimetype() or ""
+            mime_type = source.get_format_mimetype() or mime_type
             source.thumbnail((width, height))
             result_image = source
 
