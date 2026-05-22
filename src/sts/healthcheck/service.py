@@ -16,6 +16,3 @@ class HealthCheckService(HealthCheckReader, HealthCheckWriter):
     def bucket_info(self) -> BucketsInfo:
         assert self._buckets_info, "set_buckets_info() was not called"
         return self._buckets_info
-
-
-instance = HealthCheckService()
