@@ -22,24 +22,22 @@ _FORMAT_MODES: dict[ImageFormat, str] = {
 }
 
 
-def _convert_image_mode(
-        source_image: Image.Image,
-        target_mode: str
-) -> Image.Image | None:
+def _apply_mode(
+        img: Image.Image,
+        mode: str | None
+) -> Image.Image:
     """
     Convert image to specified color mode if necessary.
-
     Returns the converted image or None if conversion is not needed.
     Preserves the source image if conversion fails.
     """
-    if source_image.mode == target_mode:
-        return None
+    if not mode or img.mode == mode:
+        return img
 
     try:
-        converted = source_image.convert(target_mode)
-        return converted
+        return img.convert(mode)
     except (ValueError, OSError):
-        return None
+        return img
 
 
 def _safe_close_image(image: Image.Image | None) -> None:
@@ -72,36 +70,30 @@ def resize_image(
         ImageData with resized image or error information.
     """
 
-    if width <= 0:
-        raise ValueError("width must be > 0")
+    if width <= 0 or height <= 0:
+        raise ValueError("width and height must be > 0")
 
-    if height <= 0:
-        raise ValueError("height must be > 0")
-
-    save_params = params or _DEFAULT_SAVE_PARAMS
     result_image: Image.Image | None = None
     mime_type = ""
 
     try:
         with Image.open(data) as source:
             mime_type = source.get_format_mimetype() or mime_type
+
             source.thumbnail((width, height))
             result_image = source
 
             if image_format != ImageFormat.NONE:
-                mode = _FORMAT_MODES.get(image_format)
-                if mode:
-                    converted = _convert_image_mode(source, mode)
-                    result_image = converted or result_image
-                    if converted is not None:
-                        result_image.format = str(image_format.value)
-                        source.close()
+                target_mode = _FORMAT_MODES.get(image_format)
+                if target_mode:
+                    result_image = _apply_mode(source, target_mode)
+                    result_image.format = str(image_format.value)
+                    mime_type = Image.MIME.get(image_format.value.upper(), mime_type)
 
-            assert result_image is not None, "result_image should be assigned before"
-            mime_type = Image.MIME.get(image_format.value.upper(), mime_type)
-
+            assert result_image is not None
             output = BytesIO()
-            result_image.save(output, result_image.format, **save_params)
+            result_image.save(output, result_image.format, **(params or _DEFAULT_SAVE_PARAMS))
+
             return ImageData(content_type=mime_type, error=None, data=output)
     except Exception as e:
         _safe_close_image(result_image)
