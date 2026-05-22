@@ -80,13 +80,13 @@ class MinioFileStorageClient(FileStorageClient):
         try:
             response = self._minio_client.get_object(bucket, file_name)
             return _MinioStorageResponse(response)
-        except (S3Error, Exception) as e:
+        except S3Error:
+            return None
+        except Exception:
             if response:
                 response.close()
                 response.release_conn()
-            if isinstance(e, S3Error):
-                return None
-            raise e
+            raise
 
     def try_create_bucket(self, bucket: str, life_time_days: int) -> bool:
         if self._minio_client.bucket_exists(bucket):
@@ -106,20 +106,25 @@ class MinioFileStorageClient(FileStorageClient):
 
     def get_file_stat(self, bucket: str, file_name: str) -> StorageFileItem | None:
         try:
-            object_stat = self._minio_client.stat_object(bucket_name=bucket, object_name=file_name)
-            if not object_stat:
-                return None
+            stat = self._minio_client.stat_object(bucket, file_name)
+            meta = stat.metadata or {}
 
-            parent_etag = object_stat.metadata.get(KEY_PARENT_ETAG, None) if object_stat.metadata else None
-            return StorageFileItem(bucket=bucket, file_name=file_name, size=object_stat.size or 0,
-                                   content_type=object_stat.content_type or "", etag=object_stat.etag or "",
-                                   parent_etag=parent_etag)
+            return StorageFileItem(
+                bucket=bucket,
+                file_name=file_name,
+                size=stat.size or 0,
+                content_type=stat.content_type or "",
+                etag=stat.etag or "",
+                parent_etag=meta.get(KEY_PARENT_ETAG),
+            )
+
         except S3Error:
             return None
 
     def put_file(self, bucket: str, file_name: str, content: BytesIO, content_type: str,
                  reset_content: bool = True, parent_etag: str | None = None) -> StorageFileItem:
-        assert content is not None, "Content is required"
+        if not content:
+            raise ValueError("content is required")
 
         # read content length
         content.seek(0, os.SEEK_END)
@@ -164,7 +169,7 @@ class MinioFileStorageClient(FileStorageClient):
             for chunk in stream:
                 result.write(chunk)
             result.seek(0, os.SEEK_SET)
+            return result
         finally:
             response.close()
             response.release_conn()
-            return result
