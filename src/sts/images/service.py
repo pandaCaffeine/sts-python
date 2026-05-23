@@ -27,11 +27,11 @@ class ThumbnailService:
             file_storage_scanner: FileStorageScanner,
             logger: ILogger
     ) -> None:
-        if storage_client is None:
+        if not storage_client:
             raise ValueError("storage_client is required")
-        if logger is None:
+        if not logger:
             raise ValueError("logger is required")
-        if file_storage_scanner is None:
+        if not file_storage_scanner:
             raise ValueError("file_storage_scanner is required")
 
         self._storage_client = storage_client
