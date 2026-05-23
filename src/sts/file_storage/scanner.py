@@ -4,34 +4,14 @@ from sts.models.file_storage import ScanResult
 
 
 class FileStorageScanner(ABC):
+    """Abstract interface for file storage scanning."""
 
     @abstractmethod
     def scan_file(self, bucket: str, file_name: str) -> ScanResult:
-        """
-        Scan for thumbnail file status.
-
-        Determines whether thumbnail exists, needs creation,
-        or should use source file directly.
-
-        Args:
-            bucket: Target bucket to check.
-            file_name: Name of the file to scan.
-
-        Returns:
-            ScanResult with status and file information.
-        """
-        pass
+        """Scan for thumbnail file status. Returns whether it exists, needs creation, or should use source."""
+        ...
 
     @abstractmethod
     def find_bucket_by_alias(self, source_bucket: str, alias: str) -> str | None:
-        """
-        Find bucket by alias within source bucket context.
-
-        Args:
-            source_bucket: The source bucket name to validate against.
-            alias: The alias to look up.
-
-        Returns:
-            Resolved bucket name or None if source_bucket is not a valid source.
-        """
-        pass
+        """Resolves a bucket alias to an actual bucket name within a source context."""
+        ...
