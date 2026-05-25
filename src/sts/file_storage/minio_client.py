@@ -1,9 +1,7 @@
-from typing import Any
 import os
 import shutil
 from collections.abc import Iterable
 from io import BytesIO
-from typing import Type
 
 from minio import Minio, S3Error
 from minio.commonconfig import ENABLED, Filter
@@ -37,21 +35,18 @@ class _MinioStorageResponse(StorageResponse):
         self._content_type = headers.get('content-type', '')
         self._etag = (headers.get('etag', '')).strip('"').strip()
 
-    def __enter__(self) -> Iterable[bytes]:
+    def iter_content(self, chunk_size: int = 1024 * 512) -> Iterable[bytes]:
         if not self._http_response:
-            raise RuntimeError("Storage response has already been opened")
+            raise RuntimeError("Storage response has already been closed")
 
-        return self._http_response.stream()
-
-    def __exit__(self,
-                 exc_type: Type[BaseException] | None,
-                 exc_val: BaseException | None,
-                 exc_tb: Any) -> None:
-        self.close()
-
-    def read_to_end(self) -> Iterable[bytes]:
-        with self as stream:
-            yield from stream
+        while self._http_response is not None:
+            try:
+                chunk = self._http_response.read(chunk_size)
+                if not chunk:
+                    break
+                yield chunk
+            except Exception:
+                break
 
     def close(self):
         if not self._http_response:

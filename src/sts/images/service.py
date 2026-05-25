@@ -1,6 +1,8 @@
+from starlette.background import BackgroundTask
+
 from sts.models.file_storage import ScanResultFileFound, ScanResultCreateNew
-from starlette import status
-from starlette.responses import Response, StreamingResponse, JSONResponse
+from fastapi import status
+from fastapi.responses import Response, StreamingResponse, JSONResponse
 
 from sts.config import BucketSettings
 from sts.file_storage.client import FileStorageClient
@@ -122,5 +124,12 @@ class ThumbnailService:
         if not stream:
             return _NOT_FOUND_RESPONSE
 
+        background_task = BackgroundTask(stream.close)
         headers = {_HEADER_ETAG: stream.etag, _HEADER_LEN: str(stream.content_length)}
-        return StreamingResponse(stream.read_to_end(), media_type=stream.content_type, headers=headers)
+
+        return StreamingResponse(
+            stream.iter_content(1024*512),
+            media_type=stream.content_type,
+            headers=headers,
+            background=background_task,
+        )

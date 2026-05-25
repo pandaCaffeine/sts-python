@@ -59,36 +59,29 @@ ScanResult = Union[
 
 
 class StorageResponse(ABC):
-    @abstractmethod
-    def __enter__(self) -> Iterable[bytes]:
-        pass
 
-    @abstractmethod
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        pass
+    def iter_content(self, chunk_size: int = 1024 * 512) -> Iterable[bytes]:
+        ...
 
-    @abstractmethod
-    def read_to_end(self) -> Iterable[bytes]:
-        pass
 
     @abstractmethod
     def close(self):
-        pass
+        ...
 
     @property
     @abstractmethod
     def content_length(self) -> int:
-        pass
+        ...
 
     @property
     @abstractmethod
     def content_type(self) -> str:
-        pass
+        ...
 
     @property
     @abstractmethod
     def etag(self) -> str:
-        pass
+        ...
 
 
 @dataclass(frozen=True, slots=True, config=ConfigDict(arbitrary_types_allowed=True))
