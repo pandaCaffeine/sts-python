@@ -4,9 +4,9 @@ from sts.models.bucket import BucketsInfo
 
 
 class HealthCheckWriter(ABC):
-    """ Service to write healthcheck information """
+    """ Service to write health check information """
 
     @abstractmethod
-    def set_buckets_info(self, buckets_info: BucketsInfo):
-        """ Sets buckets info """
-        pass
+    def set_buckets_info(self, buckets_info: BucketsInfo) -> None:
+         """Stores buckets information for health check validation. """
+         ...

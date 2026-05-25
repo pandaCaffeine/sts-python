@@ -1,16 +1,17 @@
+from sts.models.file_storage import ScanResultFileFound, ScanResultCreateNew
 from unittest.mock import create_autospec
 
 from sts.config import BucketSettings, ImageSize, BucketsMap
 from sts.file_storage.minio_scanner import MinioFileStorageScanner
 from sts.models.enums import ScanStatus
 from sts.file_storage.client import FileStorageClient
-from sts.models.file_storage import StorageFileItem
+from sts.models.file_storage import StorageFileItem, ScanResultNotFound, ScanResultUseSourceFile
 
 _buckets = {
     'images': BucketSettings(source_bucket='images', size=ImageSize()),
-    'thumbnail-small': BucketSettings(size=ImageSize(100, 100), source_bucket='images', alias='small',
+    'thumbnail-small': BucketSettings(size=ImageSize(w=100, h=100), source_bucket='images', alias='small',
                                       life_time_days=30),
-    'thumbnail-medium': BucketSettings(size=ImageSize(300, 300), source_bucket='images', alias='medium',
+    'thumbnail-medium': BucketSettings(size=ImageSize(w=300, h=300), source_bucket='images', alias='medium',
                                        life_time_days=30)}
 _buckets_map = BucketsMap(source_bucket="images", buckets=_buckets,
                           alias_map={'small': 'thumbnail-small', 'medium': 'thumbnail-medium'},
@@ -26,7 +27,7 @@ _default_storage_client_mock.get_file_stat.return_value = StorageFileItem('unit'
 def test_file_storage_bucket_not_found():
     scanner = MinioFileStorageScanner(_default_storage_client_mock, _buckets_map)
     result = scanner.scan_file('images2', 'icon.png')
-    assert result.status == ScanStatus.BUCKET_NOT_FOUND
+    assert isinstance(result, ScanResultNotFound)
 
 
 def test_file_storage_source_file_not_found():
@@ -35,13 +36,13 @@ def test_file_storage_source_file_not_found():
 
     scanner = MinioFileStorageScanner(storage_client_mock, _buckets_map)
     result = scanner.scan_file('images', 'test.png')
-    assert result.status == ScanStatus.SOURCE_FILE_NOT_FOUND
+    assert isinstance(result, ScanResultNotFound)
 
 
 def test_file_storage_use_source_file():
     scanner = MinioFileStorageScanner(_default_storage_client_mock, _buckets_map)
     result = scanner.scan_file('images', 'icon.png')
-    assert result.status == ScanStatus.USE_SOURCE_FILE
+    assert isinstance(result, ScanResultUseSourceFile)
 
 
 def test_file_storage_file_found():
@@ -59,7 +60,7 @@ def test_file_storage_file_found():
 
     scanner = MinioFileStorageScanner(storage_client_mock, _buckets_map)
     result = scanner.scan_file('thumbnail-small', 'icon.png')
-    assert result.status == ScanStatus.FILE_FOUND
+    assert isinstance(result, ScanResultFileFound)
 
 
 def test_file_storage_create_new():
@@ -77,4 +78,5 @@ def test_file_storage_create_new():
 
     scanner = MinioFileStorageScanner(storage_client_mock, _buckets_map)
     result = scanner.scan_file('thumbnail-small', 'icon.png')
-    assert result.status == ScanStatus.CREATE_NEW
+
+    assert isinstance(result, ScanResultCreateNew)

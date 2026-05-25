@@ -10,22 +10,22 @@ def _assert_that_bucket_settings_are_equal(expected: BucketSettings, actual: Buc
 
 
 _expected_thumbnail_small = BucketSettings(alias='small',
-                                           size=ImageSize(300, 300),
+                                           size=ImageSize(w=300, h=300),
                                            life_time_days=30,
                                            source_bucket='pictures')
 
 _expected_thumbnail_medium = BucketSettings(alias='medium',
-                                            size=ImageSize(500, 500),
+                                            size=ImageSize(w=500, h=500),
                                             life_time_days=30,
                                             source_bucket='images')
 
 _expected_thumbnail = BucketSettings(alias=None,
-                                     size=ImageSize(100, 100),
+                                     size=ImageSize(w=100, h=100),
                                      life_time_days=10,
                                      source_bucket='pictures')
 
 _expected_pictures_small = BucketSettings(alias='p',
-                                          size=ImageSize(50, 50),
+                                          size=ImageSize(w=50, h=50),
                                           source_bucket='items',
                                           life_time_days=30,
                                           format=ImageFormat.JPEG)
@@ -79,7 +79,7 @@ def test_buckets_map():
 
     # assert source bucket
     bucket_settings = buckets_map.buckets['pictures']
-    _assert_that_bucket_settings_are_equal(BucketSettings(source_bucket='pictures', size=ImageSize(100, 100)),
+    _assert_that_bucket_settings_are_equal(BucketSettings(source_bucket='pictures', size=ImageSize(w=100, h=100)),
                                            bucket_settings)
 
     # assert thumbnail-small bucket
