@@ -1,7 +1,9 @@
+from typing import Any
 import os
 import shutil
 from collections.abc import Iterable
 from io import BytesIO
+from typing import Type
 
 from minio import Minio, S3Error
 from minio.commonconfig import ENABLED, Filter
@@ -29,15 +31,22 @@ class _MinioStorageResponse(StorageResponse):
             raise ValueError("http_response headers is required")
 
         self._http_response = http_response
-        self._content_length = int(self._http_response.headers.get('content-length') or "")
-        self._content_type = self._http_response.headers['content-type'] or ""
-        self._etag = (self._http_response.headers['etag'] or "").replace('"', '')
+        headers = http_response.headers
+
+        self._content_length = int(headers.get('content-length', '0'))
+        self._content_type = headers.get('content-type', '')
+        self._etag = (headers.get('etag', '')).strip('"').strip()
 
     def __enter__(self) -> Iterable[bytes]:
-        assert self._http_response, "error when access http_response"
+        if not self._http_response:
+            raise RuntimeError("Storage response has already been opened")
+
         return self._http_response.stream()
 
-    def __exit__(self, exc_type, exc_val, exc_tb) -> None:
+    def __exit__(self,
+                 exc_type: Type[BaseException] | None,
+                 exc_val: BaseException | None,
+                 exc_tb: Any) -> None:
         self.close()
 
     def read_to_end(self) -> Iterable[bytes]:
@@ -92,6 +101,9 @@ class MinioFileStorageClient(FileStorageClient):
     def get_file_stat(self, bucket: str, file_name: str) -> StorageFileItem | None:
         try:
             stat = self._minio_client.stat_object(bucket, file_name)
+            if not stat:
+                return None
+
             meta = stat.metadata or {}
 
             return StorageFileItem(

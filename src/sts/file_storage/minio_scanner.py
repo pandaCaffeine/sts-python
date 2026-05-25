@@ -1,18 +1,19 @@
 """MinIO implementation of file storage scanner."""
 
+from sts.models.file_storage import ScanResultCreateNew
+from sts.models.file_storage import ScanResultUseSourceFile, ScanResultFileFound
 from sts.config import BucketsMap, BucketSettings
 from sts.file_storage.client import FileStorageClient
 from sts.file_storage.scanner import FileStorageScanner
-from sts.models.enums import ScanStatus
-from sts.models.file_storage import ScanResult, StorageFileItem
+from sts.models.file_storage import ScanResult, StorageFileItem, ScanResultNotFound
 
 
 class MinioFileStorageScanner(FileStorageScanner):
     """Scans MinIO buckets to find or create thumbnails based on source file ETag."""
 
     # Pre-allocated constants for empty statuses to reduce object creation on frequent hits
-    _NOT_FOUND_BUCKET = ScanResult(status=ScanStatus.BUCKET_NOT_FOUND)
-    _NOT_FOUND_FILE = ScanResult(status=ScanStatus.SOURCE_FILE_NOT_FOUND)
+    _NOT_FOUND_BUCKET = ScanResultNotFound(reason="Bucket not configured")
+    _NOT_FOUND_FILE = ScanResultNotFound(reason="Source file not found")
 
     _storage_client: FileStorageClient
     _buckets_map: BucketsMap
@@ -69,12 +70,12 @@ class MinioFileStorageScanner(FileStorageScanner):
 
     @staticmethod
     def _use_source_file(stat: StorageFileItem) -> ScanResult:
-        return ScanResult(status=ScanStatus.USE_SOURCE_FILE, source_file_stat=stat)
+        return ScanResultUseSourceFile(source_file_stat=stat)
 
     @staticmethod
     def _file_found(source: StorageFileItem, thumb: StorageFileItem) -> ScanResult:
-        return ScanResult(status=ScanStatus.FILE_FOUND, source_file_stat=source, file_stat=thumb)
+        return ScanResultFileFound(source_file_stat=source, file_stat=thumb)
 
     @staticmethod
     def _create_new(source: StorageFileItem, bucket: BucketSettings) -> ScanResult:
-        return ScanResult(status=ScanStatus.CREATE_NEW, source_file_stat=source, bucket_settings=bucket)
+        return ScanResultCreateNew(source_file_stat=source, bucket_settings=bucket)

@@ -1,12 +1,12 @@
 from abc import ABC, abstractmethod
 from io import BytesIO
 from typing import Iterable
+from typing import Union
 
 from pydantic import ConfigDict
 from pydantic.dataclasses import dataclass
 
 from sts.config import BucketSettings
-from sts.models.enums import ScanStatus
 
 
 @dataclass(frozen=True, slots=True)
@@ -29,17 +29,33 @@ class StorageFileItem:
 
 
 @dataclass(frozen=True, slots=True)
-class ScanResult:
-    """ File scan result """
+class ScanResultNotFound:
+    """Bucket or file was not found in the configured buckets."""
+    reason: str
 
-    status: ScanStatus = ScanStatus.BUCKET_NOT_FOUND
-    """ File status """
-    source_file_stat: StorageFileItem | None = None
-    """ File stats of the source file if present """
-    file_stat: StorageFileItem | None = None
-    """ File stats of the file if it was found """
-    bucket_settings: BucketSettings | None = None
-    """ Bucket settings from config which contains found file """
+@dataclass(frozen=True, slots=True)
+class ScanResultUseSourceFile:
+    """Source file exists and should be served directly."""
+    source_file_stat: StorageFileItem
+
+@dataclass(frozen=True, slots=True)
+class ScanResultFileFound:
+    """Existing thumbnail was found and its etag matches the source."""
+    source_file_stat: StorageFileItem
+    file_stat: StorageFileItem
+
+@dataclass(frozen=True, slots=True)
+class ScanResultCreateNew:
+    """Thumbnail needs creation or overwrite."""
+    source_file_stat: StorageFileItem
+    bucket_settings: BucketSettings
+
+ScanResult = Union[
+    ScanResultNotFound,
+    ScanResultUseSourceFile,
+    ScanResultFileFound,
+    ScanResultCreateNew,
+]
 
 
 class StorageResponse(ABC):

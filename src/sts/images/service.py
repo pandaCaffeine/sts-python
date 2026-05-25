@@ -1,3 +1,4 @@
+from sts.models.file_storage import ScanResultFileFound, ScanResultCreateNew
 from starlette import status
 from starlette.responses import Response, StreamingResponse, JSONResponse
 
@@ -6,8 +7,7 @@ from sts.file_storage.client import FileStorageClient
 from sts.file_storage.scanner import FileStorageScanner
 from sts.images.processor import resize_image
 from sts.logs import ILogger
-from sts.models.enums import ScanStatus
-from sts.models.file_storage import StorageFileItem
+from sts.models.file_storage import StorageFileItem, ScanResultNotFound, ScanResultUseSourceFile
 
 _HEADER_ETAG = "Etag"
 _HEADER_LEN = "Content-Length"
@@ -42,29 +42,18 @@ class ThumbnailService:
         """Retrieves an existing thumbnail, the source file, or creates a new thumbnail."""
         scan_result = self._file_storage_scanner.scan_file(bucket, file_name)
 
-        match scan_result.status:
-            case ScanStatus.BUCKET_NOT_FOUND | ScanStatus.SOURCE_FILE_NOT_FOUND:
-                self._logger.debug(f"File not found in {bucket}/{file_name}: {scan_result.status}")
+        match scan_result:
+            case ScanResultNotFound():
+                self._logger.debug(f"File not found in {bucket}/{file_name}: {scan_result.reason}")
                 return _NOT_FOUND_RESPONSE
 
-            case ScanStatus.USE_SOURCE_FILE:
-                self._logger.debug(f"Returning source file directly: {bucket}/{file_name}")
-
-                assert scan_result.source_file_stat, "scan_result doesn't have source_file_stat"
+            case ScanResultUseSourceFile():
                 return self._get_file_response(scan_result.source_file_stat, etag)
 
-            case ScanStatus.FILE_FOUND:
-                self._logger.debug(f"File found in {bucket}/{file_name}: {scan_result.status}")
-
-                assert scan_result.file_stat, "scan_result doesn't have file_stat"
+            case ScanResultFileFound():
                 return self._get_file_response(scan_result.file_stat, etag)
 
-            case ScanStatus.CREATE_NEW:
-                self._logger.debug(f"Creating new thumbnail: {bucket}/{file_name}")
-
-                assert scan_result.bucket_settings, "scan_result doesn't have bucket_settings"
-                assert scan_result.source_file_stat, "scan_result doesn't have source_file_stat"
-
+            case ScanResultCreateNew():
                 return self._create_thumbnail_and_upload(
                     source_file_stat=scan_result.source_file_stat,
                     bucket_settings=scan_result.bucket_settings,
