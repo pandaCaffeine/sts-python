@@ -60,7 +60,9 @@ ScanResult = Union[
 
 class StorageResponse(ABC):
 
+    @abstractmethod
     def iter_content(self, chunk_size: int = 1024 * 512) -> Iterable[bytes]:
+        """Yields file content in configured chunk size."""
         ...
 
 
