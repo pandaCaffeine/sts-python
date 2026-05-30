@@ -4,8 +4,10 @@ Dependency injection container configuration using Dishka.
 This module sets up the dependency injection container for the application,
 organizing providers into APP and REQUEST scopes for optimal resource management.
 """
+
 import fastapi
 import loguru
+import urllib3
 from dishka import make_container, Provider, Scope, Container, AnyOf
 from dishka.integrations.fastapi import FastapiProvider
 from minio import Minio
@@ -20,6 +22,7 @@ from sts.file_storage.scanner import FileStorageScanner
 from sts.healthcheck.reader import HealthCheckReader
 from sts.healthcheck.service import HealthCheckService
 from sts.healthcheck.writer import HealthCheckWriter
+from sts.images.lock_manager import LockManager
 from sts.images.service import ThumbnailService
 from sts.logs import ILogger
 
@@ -41,6 +44,16 @@ def _provide_s3_settings(app_settings: AppSettings) -> S3Settings:
 
 def _provide_minio_client(s3_settings: S3Settings) -> Minio:
     """Create and configure Minio client."""
+    http = urllib3.PoolManager(
+        maxsize=s3_settings.http.maxsize,
+        block=s3_settings.http.block,
+        retries=urllib3.Retry(
+            total=s3_settings.http.retries.total,
+            backoff_factor=s3_settings.http.retries.backoff_factor,
+            status_forcelist=s3_settings.http.retries.status_forcelist,
+        )
+    )
+
     return Minio(
         endpoint=s3_settings.endpoint,
         access_key=s3_settings.access_key,
@@ -48,6 +61,7 @@ def _provide_minio_client(s3_settings: S3Settings) -> Minio:
         region=s3_settings.region,
         cert_check=s3_settings.trust_cert,
         secure=s3_settings.use_tsl,
+        http_client=http,
     )
 
 
@@ -73,14 +87,20 @@ def _provide_thumbnail_service(
         storage_client: FileStorageClient,
         file_storage_scanner: FileStorageScanner,
         logger: ILogger,
+        lock_manager: LockManager,
 ) -> ThumbnailService:
     """Provide thumbnail generation service."""
-    return ThumbnailService(storage_client, file_storage_scanner, logger)
+    return ThumbnailService(storage_client, file_storage_scanner, logger, lock_manager)
 
 
 def _provide_healthcheck_service() -> AnyOf[HealthCheckReader, HealthCheckWriter]:
     """Provide health check service implementing reader and writer interfaces."""
     return HealthCheckService()
+
+
+def _provide_lock_manager() -> LockManager:
+    """Provide lock manager."""
+    return LockManager()
 
 
 def _provide_bucket_service(
@@ -114,6 +134,7 @@ def _create_provider() -> Provider:
     provider.provide(_provide_healthcheck_service, scope=Scope.APP)
     provider.provide(_provide_minio_client, scope=Scope.APP)
     provider.provide(_provide_bucket_service, scope=Scope.APP)
+    provider.provide(_provide_lock_manager, scope=Scope.APP)
 
     # Request-scoped providers
     provider.provide(_provide_request_logger, scope=Scope.REQUEST)

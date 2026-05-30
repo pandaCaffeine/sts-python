@@ -40,6 +40,18 @@ class ImageSize(BaseModel):
         raise ValueError(f"Couldn't parse '{source}' into ImageSize")
 
 
+class S3HttpRetries(BaseModel):
+    total: int = 3
+    backoff_factor: float = 0.1
+    status_forcelist: list[int] = [500, 502, 503, 504]
+
+
+class S3HttpSettings(BaseModel):
+    maxsize: int = 10
+    block: bool = False
+    retries: S3HttpRetries = S3HttpRetries()
+
+
 class S3Settings(BaseModel):
     """Configuration settings for S3-compatible object storage.
 
@@ -50,6 +62,7 @@ class S3Settings(BaseModel):
         region: The S3 region. Defaults to "eu-west-1".
         use_tsl: Whether to use TLS/SSL. Defaults to False.
         trust_cert: Whether to trust certificates. Defaults to True.
+        http: Http settings for client
     """
     endpoint: str = "localhost:9000"
     access_key: str = "MINIO_AK"
@@ -57,6 +70,7 @@ class S3Settings(BaseModel):
     region: str = "eu-west-1"
     use_tsl: bool = False
     trust_cert: bool = True
+    http: S3HttpSettings = S3HttpSettings()
 
     @classmethod
     def parse(cls, value: str) -> tuple[typing.Self, str | None]:
@@ -76,7 +90,7 @@ class S3Settings(BaseModel):
         if not s3_url.path:
             raise ValueError(f"Value '{value}' is not a valid S3 connection string")
 
-        fragments = [f for f in str(s3_url.path).split('/') if f]
+        fragments = [f for f in s3_url.path.split('/') if f]
         if not fragments:
             raise ValueError(f"Url path '{s3_url.path}' doesn't contain region")
 
@@ -160,7 +174,7 @@ class AppSettings(BaseSettings):
 
     @model_validator(mode='before')
     @classmethod
-    def before_validator(cls, data: typing.Any) -> typing.Any:
+    def before_validator(cls, data: typing.Any):
         """Validate and prepare settings data before model construction.
 
         Args:
@@ -254,7 +268,7 @@ class BucketsMap(BaseModel):
 
 def _build_buckets_map(settings: AppSettings) -> BucketsMap:
     source_buckets = [s.source_bucket for s in settings.buckets.values() if s.source_bucket]
-    alias_map = {str(b.alias): name for name, b in settings.buckets.items() if b.alias}
+    alias_map = {b.alias: name for name, b in settings.buckets.items() if b.alias}
 
     base_source = settings.source_bucket or source_buckets[0]
     buckets_dict = {**settings.buckets, base_source: BucketSettings(source_bucket=base_source, size=settings.size)}

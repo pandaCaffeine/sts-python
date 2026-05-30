@@ -1,14 +1,14 @@
-from starlette.background import BackgroundTask
-
-from sts.models.file_storage import ScanResultFileFound, ScanResultCreateNew
 from fastapi import status
 from fastapi.responses import Response, StreamingResponse, JSONResponse
+from starlette.background import BackgroundTask
 
 from sts.config import BucketSettings
 from sts.file_storage.client import FileStorageClient
 from sts.file_storage.scanner import FileStorageScanner
+from sts.images.lock_manager import LockManager
 from sts.images.processor import resize_image
 from sts.logs import ILogger
+from sts.models.file_storage import ScanResultFileFound, ScanResultCreateNew
 from sts.models.file_storage import StorageFileItem, ScanResultNotFound, ScanResultUseSourceFile
 
 _HEADER_ETAG = "Etag"
@@ -27,7 +27,8 @@ class ThumbnailService:
             self,
             storage_client: FileStorageClient,
             file_storage_scanner: FileStorageScanner,
-            logger: ILogger
+            logger: ILogger,
+            lock_manager: LockManager,
     ) -> None:
         if not storage_client:
             raise ValueError("storage_client is required")
@@ -35,7 +36,10 @@ class ThumbnailService:
             raise ValueError("logger is required")
         if not file_storage_scanner:
             raise ValueError("file_storage_scanner is required")
+        if not lock_manager:
+            raise ValueError("lock_manager is required")
 
+        self._lock_manager = lock_manager
         self._storage_client = storage_client
         self._file_storage_scanner = file_storage_scanner
         self._logger = logger
@@ -56,7 +60,7 @@ class ThumbnailService:
                 return self._get_file_response(scan_result.file_stat, etag)
 
             case ScanResultCreateNew():
-                return self._create_thumbnail_and_upload(
+                return self._create_thumbnail(
                     source_file_stat=scan_result.source_file_stat,
                     bucket_settings=scan_result.bucket_settings,
                     bucket=bucket,
@@ -79,6 +83,26 @@ class ThumbnailService:
             return _NOT_FOUND_RESPONSE
 
         return self.get_thumbnail(bucket, file_name, etag)
+
+    def _create_thumbnail(self, source_file_stat: StorageFileItem,
+                          bucket_settings: BucketSettings,
+                          bucket: str) -> Response:
+
+        lock_key = f"{source_file_stat.bucket}/{source_file_stat.file_name}@{bucket}"
+        with self._lock_manager.acquire(lock_key):
+            self._logger.debug(f"Processing thumbnail lock acquired for {lock_key}")
+
+            # double check file in case other thread created thumb
+            existing = self._storage_client.get_file_stat(bucket, source_file_stat.file_name)
+            if existing and existing.parent_etag == source_file_stat.etag:
+                self._logger.debug(f"Thumbnail '{lock_key}' already exists (was created while waiting)")
+                return self._get_file_response(existing, None)
+
+            return self._create_thumbnail_and_upload(
+                source_file_stat=source_file_stat,
+                bucket_settings=bucket_settings,
+                bucket=bucket,
+            )
 
     def _create_thumbnail_and_upload(
             self,
@@ -128,7 +152,7 @@ class ThumbnailService:
         headers = {_HEADER_ETAG: stream.etag, _HEADER_LEN: str(stream.content_length)}
 
         return StreamingResponse(
-            stream.iter_content(1024*512),
+            stream.iter_content(1024 * 512),
             media_type=stream.content_type,
             headers=headers,
             background=background_task,
