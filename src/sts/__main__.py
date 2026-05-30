@@ -2,7 +2,6 @@ import uvicorn
 from loguru import logger
 
 from sts import __version__
-from sts.bucket_management.service import BucketService
 from sts.config import AppSettings
 from sts.container import container
 from sts.logs import configure_logger
@@ -11,9 +10,6 @@ from sts.logs import configure_logger
 def _start_app():
     l = logger.bind(source="core")
     app_settings = container.get(AppSettings)
-
-    buckets_service = container.get(BucketService)
-    buckets_service.create_buckets()
 
     l.info("Starting web host")
     uvicorn.run("sts.host:app", **app_settings.uvicorn)
