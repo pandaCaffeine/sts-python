@@ -76,7 +76,7 @@ class S3Settings(BaseModel):
         if not s3_url.path:
             raise ValueError(f"Value '{value}' is not a valid S3 connection string")
 
-        fragments = [f for f in str(s3_url.path).split('/') if f]
+        fragments = [f for f in s3_url.path.split('/') if f]
         if not fragments:
             raise ValueError(f"Url path '{s3_url.path}' doesn't contain region")
 
@@ -160,7 +160,7 @@ class AppSettings(BaseSettings):
 
     @model_validator(mode='before')
     @classmethod
-    def before_validator(cls, data: typing.Any) -> typing.Any:
+    def before_validator(cls, data: typing.Any):
         """Validate and prepare settings data before model construction.
 
         Args:
@@ -254,7 +254,7 @@ class BucketsMap(BaseModel):
 
 def _build_buckets_map(settings: AppSettings) -> BucketsMap:
     source_buckets = [s.source_bucket for s in settings.buckets.values() if s.source_bucket]
-    alias_map = {str(b.alias): name for name, b in settings.buckets.items() if b.alias}
+    alias_map = {b.alias: name for name, b in settings.buckets.items() if b.alias}
 
     base_source = settings.source_bucket or source_buckets[0]
     buckets_dict = {**settings.buckets, base_source: BucketSettings(source_bucket=base_source, size=settings.size)}
