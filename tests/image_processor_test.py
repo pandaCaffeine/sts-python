@@ -17,7 +17,7 @@ def __read_file(file_name: str) -> BytesIO:
 
 def test_resize_image() -> None:
     file_data = __read_file('test.png')
-    resize_result = resize_image(file_data, 100, 100)
+    resize_result = resize_image(file_data, 100, 100, ImageFormat.PNG)
 
     assert not resize_result.error
     assert resize_result.content_type == _mime_png

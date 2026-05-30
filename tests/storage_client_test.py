@@ -42,7 +42,7 @@ def test_open_stream_successful():
     assert result
     assert result.etag == _expected_etag
     assert result.content_type == _expected_content_type
-    assert result.content_length == _expected_content_length
+    assert result.content_length == int(_expected_content_length)
 
 
 def test_open_stream_returns_none_when_s3_error():

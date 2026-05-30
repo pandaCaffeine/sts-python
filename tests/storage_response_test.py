@@ -20,4 +20,4 @@ def test_storage_response_init_successful():
     # assert
     assert storage_response.etag == _expected_etag
     assert storage_response.content_type == _expected_content_type
-    assert storage_response.content_length == _expected_content_length
+    assert storage_response.content_length == int(_expected_content_length)
