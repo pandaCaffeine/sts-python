@@ -23,7 +23,7 @@ from sts.healthcheck.reader import HealthCheckReader
 from sts.healthcheck.service import HealthCheckService
 from sts.healthcheck.writer import HealthCheckWriter
 from sts.images.lock_manager import LockManager
-from sts.images.service import ThumbnailService
+from sts.images.thumbnail import ThumbnailService
 from sts.logs import ILogger
 
 

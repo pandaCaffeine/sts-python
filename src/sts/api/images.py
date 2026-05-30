@@ -4,7 +4,7 @@ from dishka import FromDishka
 from dishka.integrations.fastapi import DishkaSyncRoute
 from fastapi import APIRouter, Header, Response
 
-from sts.images.service import ThumbnailService
+from sts.images.thumbnail import ThumbnailService
 
 images_router = APIRouter(route_class=DishkaSyncRoute)
 
