@@ -2,7 +2,7 @@
 
 # Simple Thumbnail Service (sts)
 
-Current version: `2.0.2`
+Current version: `2.0.3`
 
 The microservice serves thumbnail images in `minio` and does some ✨magic for you:
 
