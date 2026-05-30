@@ -45,12 +45,12 @@ def _provide_s3_settings(app_settings: AppSettings) -> S3Settings:
 def _provide_minio_client(s3_settings: S3Settings) -> Minio:
     """Create and configure Minio client."""
     http = urllib3.PoolManager(
-        maxsize=10,
-        block=False,
+        maxsize=s3_settings.http.maxsize,
+        block=s3_settings.http.block,
         retries=urllib3.Retry(
-            total=3,
-            backoff_factor=0.1,
-            status_forcelist=[500, 502, 503, 504],
+            total=s3_settings.http.retries.total,
+            backoff_factor=s3_settings.http.retries.backoff_factor,
+            status_forcelist=s3_settings.http.retries.status_forcelist,
         )
     )
 

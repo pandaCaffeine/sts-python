@@ -40,6 +40,18 @@ class ImageSize(BaseModel):
         raise ValueError(f"Couldn't parse '{source}' into ImageSize")
 
 
+class S3HttpRetries(BaseModel):
+    total: int = 3
+    backoff_factor: float = 0.1
+    status_forcelist: list[int] = [500, 502, 503, 504]
+
+
+class S3HttpSettings(BaseModel):
+    maxsize: int = 10
+    block: bool = False
+    retries: S3HttpRetries = S3HttpRetries()
+
+
 class S3Settings(BaseModel):
     """Configuration settings for S3-compatible object storage.
 
@@ -50,6 +62,7 @@ class S3Settings(BaseModel):
         region: The S3 region. Defaults to "eu-west-1".
         use_tsl: Whether to use TLS/SSL. Defaults to False.
         trust_cert: Whether to trust certificates. Defaults to True.
+        http: Http settings for client
     """
     endpoint: str = "localhost:9000"
     access_key: str = "MINIO_AK"
@@ -57,6 +70,7 @@ class S3Settings(BaseModel):
     region: str = "eu-west-1"
     use_tsl: bool = False
     trust_cert: bool = True
+    http: S3HttpSettings = S3HttpSettings()
 
     @classmethod
     def parse(cls, value: str) -> tuple[typing.Self, str | None]:
