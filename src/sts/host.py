@@ -5,7 +5,7 @@ from fastapi import FastAPI
 
 from sts.api.hc import hc_router
 from sts.api.images import images_router
-from sts.buckets.service import BucketService
+from sts.bucket_management.service import BucketService
 from sts.config import AppSettings
 from sts.container import container
 from sts.healthcheck.writer import HealthCheckWriter

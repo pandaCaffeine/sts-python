@@ -12,8 +12,8 @@ from dishka import make_container, Provider, Scope, Container, AnyOf
 from dishka.integrations.fastapi import FastapiProvider
 from minio import Minio
 
-from sts.buckets.minio import MinioBucketService
-from sts.buckets.service import BucketService
+from sts.bucket_management.minio import MinioBucketService
+from sts.bucket_management.service import BucketService
 from sts.config import AppSettings, BucketsMap, create_buckets_map, S3Settings
 from sts.file_storage.client import FileStorageClient
 from sts.file_storage.minio_client import MinioFileStorageClient

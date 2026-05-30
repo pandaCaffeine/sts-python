@@ -2,7 +2,7 @@ import uvicorn
 from loguru import logger
 
 from sts import __version__
-from sts.buckets.service import BucketService
+from sts.bucket_management.service import BucketService
 from sts.config import AppSettings
 from sts.container import container
 from sts.logs import configure_logger
