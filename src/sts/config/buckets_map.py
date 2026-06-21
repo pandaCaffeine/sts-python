@@ -22,19 +22,23 @@ class BucketsMap(BaseModel):
 
 
 def _build_buckets_map(settings: AppSettings) -> BucketsMap:
-    source_buckets = [s.source_bucket for s in settings.buckets.values() if s.source_bucket]
+    declared_sources = [s.source_bucket for s in settings.buckets.values() if s.source_bucket]
     alias_map = {b.alias: name for name, b in settings.buckets.items() if b.alias}
 
-    base_source = settings.source_bucket or source_buckets[0]
+    if not (base_source := settings.source_bucket or (declared_sources[0] if declared_sources else None)):
+        raise ValueError(
+            "Cannot resolve source bucket: set 'source_bucket' in AppSettings "
+            "or specify 'source_bucket' for al least one bucket."
+        )
     buckets_dict = {**settings.buckets, base_source: BucketSettings(source_bucket=base_source, size=settings.size)}
 
     if not settings.source_bucket:
-        source_buckets.append(base_source)
+        declared_sources.append(base_source)
 
     return BucketsMap(
         source_bucket=base_source,
         buckets=buckets_dict,
-        all_source_buckets=set(source_buckets),
+        all_source_buckets=set(declared_sources),
         alias_map=alias_map,
     )
 
