@@ -21,14 +21,18 @@ _EtagDep = Annotated[str | None, Header(alias="If-None-Match")]
 
 
 @images_router.get("/{bucket}/{file_name}",
-                   summary="Returns a thumbnail or original image",
+                   summary="Return a file from a source or thumbnail bucket",
                    description=(
-                           "Returns a file for ``{bucket}/{file_name}``.\n\n"
-                           "If ``{bucket}`` is a source bucket, it returns source file."
-                           "If ``{bucket}`` is a thumbnail bucket, it returns thumbnail file."
-                           "If a processed thumbnail already exists, it is streamed back. "
-                           "If only the source file is present, a new thumbnail is created on demand. "
-                           "Supports ETag-based caching via `If-None-Match`."
+                           "Return the file stored at ``{bucket}/{file_name}``.\n\n"
+                           "The bucket kind is resolved from configuration:\n\n"
+                           "- **Source bucket** — the original file is streamed back as is.\n"
+                           "- **Thumbnail bucket** — if a processed thumbnail already "
+                           "exists in storage, it is streamed back; if only the source "
+                           "file is present, a new thumbnail is generated on demand from "
+                           "the source and streamed back.\n\n"
+                           "Supports ETag-based caching via ``If-None-Match``: when the "
+                           "supplied ETag matches the current object ETag, the response "
+                           "is ``304 Not Modified`` and no body is returned."
                    ),
                    responses={
                        200: {"description": "Thumbnail bytes streamed back successfully"},
@@ -42,23 +46,35 @@ _EtagDep = Annotated[str | None, Header(alias="If-None-Match")]
 def get_thumbnail(bucket: str, file_name: str,
                   thumbnail_service: FromDishka[ThumbnailService],
                   etag: _EtagDep = None) -> Response:
-    """Return a thumbnail for ``{bucket}/{file_name}``. Returns original file if ``{bucket}``
-    is for original file.
+    """Return the file stored at ``{bucket}/{file_name}`` for any bucket kind.
 
-    If a processed thumbnail already exists, it is streamed back. If only
-    the source file is present, a new thumbnail is created on demand.
-    Supports ETag-based caching via ``If-None-Match``.
+    The endpoint transparently serves both source buckets and thumbnail
+    buckets; the bucket role is resolved from configuration:
+
+    - **Source bucket** — the original file is streamed back as is.
+    - **Thumbnail bucket** — if a processed thumbnail already exists in
+      storage, it is streamed back; if only the source file is present,
+      a new thumbnail is generated on demand from the source file and
+      streamed back.
+
+    Supports ETag-based caching via ``If-None-Match``: if the supplied
+    ETag matches the current object ETag, the response is ``304 Not
+    Modified`` and no body is returned.
 
     Args:
-        bucket: Target bucket name where the thumbnail (or source file) lives.
+        bucket: Target bucket name. Works for source buckets (returns
+            the original file) and thumbnail buckets (returns an existing
+            or freshly generated thumbnail).
         file_name: Object name within the bucket, including any extension.
-        thumbnail_service: Injected thumbnail service handling storage I/O.
+        thumbnail_service: Injected thumbnail service handling storage I/O
+            and on-demand thumbnail creation.
         etag: Optional ``If-None-Match`` value for conditional responses.
 
     Returns:
-        A ``200 OK`` streaming response with the thumbnail bytes,
+        A ``200 OK`` streaming response with the source or thumbnail bytes,
         ``304 Not Modified`` if ``etag`` matches the current object ETag,
-        or ``404 Not Found`` if neither the source nor a cached thumbnail exists.
+        or ``404 Not Found`` if neither the source nor a cached thumbnail
+        exists in the requested bucket.
     """
     return thumbnail_service.get_thumbnail(bucket, file_name, etag)
 
