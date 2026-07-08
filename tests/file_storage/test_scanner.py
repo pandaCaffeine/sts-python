@@ -18,7 +18,7 @@ _buckets_map = BucketsMap(source_bucket="images", buckets=_buckets,
                           all_source_buckets={'images'})
 _default_storage_client_mock = create_autospec(FileStorageClient)
 _default_storage_client_mock.get_file_stat.return_value = StorageFileItem('unit',
-                                                                          'test.png',
+                                                                          '../test.png',
                                                                           1024,
                                                                           'image/png',
                                                                           "abcdef123", None)

@@ -9,10 +9,9 @@ from minio.helpers import DictType
 from minio.lifecycleconfig import LifecycleConfig, Rule, Expiration
 from urllib3 import BaseHTTPResponse
 
+from sts.constants import META_KEY_PARENT_ETAG
 from sts.file_storage.client import FileStorageClient
 from sts.models.file_storage import StorageFileItem, StorageResponse
-
-KEY_PARENT_ETAG: str = "x-amz-meta-parent-etag"
 
 
 class _MinioStorageResponse(StorageResponse):
@@ -107,7 +106,7 @@ class MinioFileStorageClient(FileStorageClient):
                 size=stat.size or 0,
                 content_type=stat.content_type or "",
                 etag=stat.etag or "",
-                parent_etag=meta.get(KEY_PARENT_ETAG),
+                parent_etag=meta.get(META_KEY_PARENT_ETAG),
             )
 
         except S3Error:
@@ -138,7 +137,7 @@ class MinioFileStorageClient(FileStorageClient):
         # seek to the start to put file
         content.seek(0, os.SEEK_SET)
 
-        metadata: DictType | None = {KEY_PARENT_ETAG: parent_etag} if parent_etag else None
+        metadata: DictType | None = {META_KEY_PARENT_ETAG: parent_etag} if parent_etag else None
         result = self._minio_client.put_object(
             bucket_name=bucket,
             object_name=file_name,
