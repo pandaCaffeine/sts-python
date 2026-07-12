@@ -1,24 +1,23 @@
+from typing import override
 from urllib.parse import urljoin
 
+import loguru
 from jwt import PyJWKClient, ExpiredSignatureError, InvalidAudienceError, InvalidIssuerError, InvalidSignatureError, \
     InvalidTokenError, decode
 
 from sts.config.auth import OidcSettings
-from sts.logs import ILogger
 from sts.security.jwt_verifier import JWTVerifier
 from sts.security.models import VerifiedToken, InvalidToken
 
 
 class OidcJWTVerifier(JWTVerifier):
 
-    def __init__(self, settings: OidcSettings, logger: ILogger) -> None:
-        if not settings:
+    def __init__(self, settings: OidcSettings) -> None:
+        if settings is None:
             raise ValueError("settings is required")
-        if not logger:
-            raise ValueError("logger is required")
 
         self._settings = settings
-        self._logger = logger
+        self._logger = loguru.logger.bind(source="oidc_jwt_verifier")
 
         jwks_uri = settings.jwks_uri or urljoin(
             str(settings.issuer).rstrip("/") + "/",
@@ -31,6 +30,7 @@ class OidcJWTVerifier(JWTVerifier):
             lifespan=settings.jwks_ttl_seconds
         )
 
+    @override
     def verify(self, token: str) -> VerifiedToken | InvalidToken:
         if not token:
             return InvalidToken(reason="missing")
@@ -59,9 +59,9 @@ class OidcJWTVerifier(JWTVerifier):
             return InvalidToken(reason="invalid_issuer")
         except InvalidSignatureError:
             return InvalidToken(reason="invalid_signature")
-        except InvalidTokenError as exc:  # все остальные JWT-ошибки
+        except InvalidTokenError as exc:  # any other JWT error
             return InvalidToken(reason=f"invalid:{type(exc).__name__}")
-        except Exception as exc:  # неизвестное — fail-closed
+        except Exception as exc:  # unknown error
             self._logger.warning(f"Unexpected JWT decode error: {exc}")
             return InvalidToken(reason="invalid")
 

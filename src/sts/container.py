@@ -5,6 +5,7 @@ This module sets up the dependency injection container for the application,
 organizing providers into APP and REQUEST scopes for optimal resource management.
 """
 
+from sts.config.auth import AuthSettings, AuthMode
 import fastapi
 import loguru
 import urllib3
@@ -25,11 +26,19 @@ from sts.healthcheck.writer import HealthCheckWriter
 from sts.images.lock_manager import LockManager
 from sts.images.thumbnail import ThumbnailService
 from sts.logs import ILogger
+from sts.security.jwt_verifier import JWTVerifier
+from sts.security.off_jwt_verifier import OffJWTVerifier
+from sts.security.oidc import OidcJWTVerifier
 
 
 def _provide_app_settings() -> AppSettings:
     """Provide application settings from configuration."""
     return AppSettings()
+
+
+def _provide_auth_settings(app_settings: AppSettings) -> AuthSettings:
+    """Provide authentication settings from application settings."""
+    return app_settings.auth
 
 
 def _provide_buckets_map(app_settings: AppSettings) -> BucketsMap:
@@ -116,6 +125,18 @@ def _provide_bucket_service(
     )
 
 
+def _provide_jwt_verifier(
+        auth: AuthSettings
+) -> JWTVerifier:
+    if auth.mode is AuthMode.off:
+        return OffJWTVerifier()
+
+    if not auth.oidc:
+        raise ValueError("auth.oidc must be provided when auth.mode='oidc'")
+
+    return OidcJWTVerifier(settings=auth.oidc)
+
+
 def _create_provider() -> Provider:
     """
     Create and configure the Dishka dependency injection provider.
@@ -128,6 +149,7 @@ def _create_provider() -> Provider:
 
     # Application-scoped providers
     provider.provide(_provide_app_settings, scope=Scope.APP)
+    provider.provide(_provide_auth_settings, scope=Scope.APP)
     provider.provide(_provide_buckets_map, scope=Scope.APP)
     provider.provide(_provide_s3_settings, scope=Scope.APP)
     provider.provide(_provide_storage_client, scope=Scope.APP)
@@ -135,6 +157,7 @@ def _create_provider() -> Provider:
     provider.provide(_provide_minio_client, scope=Scope.APP)
     provider.provide(_provide_bucket_service, scope=Scope.APP)
     provider.provide(_provide_lock_manager, scope=Scope.APP)
+    provider.provide(_provide_jwt_verifier, scope=Scope.APP)
 
     # Request-scoped providers
     provider.provide(_provide_request_logger, scope=Scope.REQUEST)
