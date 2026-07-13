@@ -70,7 +70,7 @@ def require_auth(
         from fastapi import HTTPException, status
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Authentication required",
+            detail={'status': status.HTTP_401_UNAUTHORIZED, 'message': 'Authentication required'},
             headers={"WWW-Authenticate": "Bearer"},
         )
 
