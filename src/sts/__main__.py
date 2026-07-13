@@ -19,7 +19,8 @@ if __name__ == "__main__":
     print(f"sts v{__version__}")
     settings = container.get(AppSettings)
     configure_logger(settings)
-    print(f" * s3 host: {settings.s3.endpoint}\n"
+    print(f" * auth mode: {settings.auth.mode}\n"
+          f" * s3 host: {settings.s3.endpoint}\n"
           f" * source bucket: {settings.source_bucket or '<undefined>'}\n"
           f" * buckets:")
 

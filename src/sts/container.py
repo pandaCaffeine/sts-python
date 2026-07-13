@@ -26,6 +26,8 @@ from sts.healthcheck.writer import HealthCheckWriter
 from sts.images.lock_manager import LockManager
 from sts.images.thumbnail import ThumbnailService
 from sts.logs import ILogger
+from sts.security.dependencies import Authenticator
+from sts.security.extractor import TokenExtractor
 from sts.security.jwt_verifier import JWTVerifier
 from sts.security.off_jwt_verifier import OffJWTVerifier
 from sts.security.oidc import OidcJWTVerifier
@@ -39,6 +41,17 @@ def _provide_app_settings() -> AppSettings:
 def _provide_auth_settings(app_settings: AppSettings) -> AuthSettings:
     """Provide authentication settings from application settings."""
     return app_settings.auth
+
+
+def _provide_token_extractor(auth: AuthSettings) -> TokenExtractor:
+    cookie_name = "access_token" if auth.oidc is None else auth.oidc.cookie_name
+    return TokenExtractor(cookie_name=cookie_name)
+
+
+def _provide_authenticator(auth: AuthSettings, verifier: JWTVerifier,
+                           token_extractor: TokenExtractor, logger: ILogger) -> Authenticator:
+    return Authenticator(auth_mode=auth.mode, verifier=verifier, token_extractor=token_extractor,
+                         logger=logger)
 
 
 def _provide_buckets_map(app_settings: AppSettings) -> BucketsMap:
@@ -158,11 +171,13 @@ def _create_provider() -> Provider:
     provider.provide(_provide_bucket_service, scope=Scope.APP)
     provider.provide(_provide_lock_manager, scope=Scope.APP)
     provider.provide(_provide_jwt_verifier, scope=Scope.APP)
+    provider.provide(_provide_token_extractor, scope=Scope.APP)
 
     # Request-scoped providers
     provider.provide(_provide_request_logger, scope=Scope.REQUEST)
     provider.provide(_provide_file_storage_scanner, scope=Scope.REQUEST)
     provider.provide(_provide_thumbnail_service, scope=Scope.REQUEST)
+    provider.provide(_provide_authenticator, scope=Scope.REQUEST)
 
     return provider
 

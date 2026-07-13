@@ -1,11 +1,10 @@
-from typing import Annotated
+from typing import Mapping
 
+import fastapi
 from dishka import FromDishka
-from dishka.integrations.fastapi import inject
-from fastapi import Request
-from fastapi.params import Depends
+from dishka.integrations.fastapi import inject, inject_sync
 
-from sts.config.auth import AuthSettings, AuthMode
+from sts.config.auth import AuthMode
 from sts.logs import ILogger
 from sts.security.extractor import TokenExtractor
 from sts.security.jwt_verifier import JWTVerifier
@@ -13,49 +12,59 @@ from sts.security.models import InvalidToken
 from sts.security.principal import Principal, Anonymous, Authenticated
 
 
-def _build_principal(
-        request: Request,
-        auth: AuthSettings,
-        verifier: JWTVerifier,
-        logger: ILogger,
-) -> Principal:
-    if auth.mode is AuthMode.off:
-        logger.debug("auth is disabled, request treated as anonymous")
-        return Anonymous()
+class Authenticator:
+    def __init__(self, auth_mode: AuthMode, verifier: JWTVerifier,
+                 token_extractor: TokenExtractor,
+                 logger: ILogger) -> None:
+        if verifier is None:
+            raise ValueError("verifier is required")
+        if auth_mode is None:
+            raise ValueError("auth_mode is required")
+        if token_extractor is None:
+            raise ValueError("token_extractor is required")
+        if logger is None:
+            raise ValueError("logger is required")
 
-    cookie_name = auth.oidc.cookie_name if auth.oidc else "access_token"
-    extractor = TokenExtractor(cookie_name=cookie_name)
-    token = extractor.extract(request.headers, request.cookies)
-    if not token:
-        logger.debug("No bearer token found in request")
-        return Anonymous()
+        self._verifier = verifier
+        self._auth_mode = auth_mode
+        self._logger = logger
+        self._extractor = token_extractor
 
-    result = verifier.verify(token)
-    if isinstance(result, InvalidToken):
-        logger.debug(f"Token rejected: {result.reason}")
-        return Anonymous()
+    def is_required(self) -> bool:
+        """ Returns TRUE is authentication is required according to auth configs. """
+        return self._auth_mode is AuthMode.oidc
 
-    return Authenticated(token=result)
+    def authenticate(
+            self,
+            headers: Mapping[str, str],
+            cookies: Mapping[str, str]
+    ) -> Principal:
+        token = self._extractor.extract(headers=headers, cookies=cookies)
+        if not token:
+            self._logger.debug("No bearer token found in request")
+            return Anonymous()
+
+        result = self._verifier.verify(token)
+        if isinstance(result, InvalidToken):
+            self._logger.debug(f"Token rejected: {result.reason}")
+            return Anonymous()
+
+        return Authenticated(token=result)
 
 
-@inject
-def current_principal(
-        request: Request,
-        auth: FromDishka[AuthSettings],
-        verifier: FromDishka[JWTVerifier],
-        logger: FromDishka[ILogger]
-) -> Principal:
-    """FastAPI dependency returning the request's :class:`Principal`."""
-    return _build_principal(request, auth, verifier, logger)
-
-
-@inject
-def require_auth(principal: Annotated[Principal, Depends(current_principal)],
-                 auth: FromDishka[AuthSettings]) -> Principal:
+@inject_sync
+def require_auth(
+        request: fastapi.Request,
+        authenticator: FromDishka[Authenticator]) -> Principal:
     """FastAPI dependency enforcing that the request is authenticated."""
 
-    if auth.mode is AuthMode.off:
-        return principal
+    if not authenticator.is_required():
+        return Anonymous()
+
+    principal = authenticator.authenticate(
+        headers=request.headers,
+        cookies=request.cookies
+    )
 
     if isinstance(principal, Anonymous):
         from fastapi import HTTPException, status
@@ -64,4 +73,5 @@ def require_auth(principal: Annotated[Principal, Depends(current_principal)],
             detail="Authentication required",
             headers={"WWW-Authenticate": "Bearer"},
         )
+
     return principal
