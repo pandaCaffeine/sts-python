@@ -2,7 +2,7 @@ from typing import Mapping
 
 import fastapi
 from dishka import FromDishka
-from dishka.integrations.fastapi import inject, inject_sync
+from dishka.integrations.fastapi import inject_sync
 
 from sts.config.auth import AuthMode
 from sts.logs import ILogger
