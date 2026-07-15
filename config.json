@@ -2,14 +2,14 @@
   "buckets": {
     "thumbnail-small": {
       "size": {
-        "w": 300,
-        "h": 300
+        "w": 100,
+        "h": 100
       },
       "alias": "small",
       "format": "jpeg"
     },
     "thumbnail-medium": {
-      "size": "500x500",
+      "size": "200x200",
       "alias": "medium"
     }
   },

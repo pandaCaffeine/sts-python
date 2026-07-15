@@ -1,9 +1,9 @@
 import typing
-from functools import lru_cache
 
-from pydantic import BaseModel, HttpUrl, model_validator, Field
+from pydantic import BaseModel, HttpUrl, Field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict, PydanticBaseSettingsSource, JsonConfigSettingsSource
 
+from sts.config.auth import AuthSettings, AuthMode
 from sts.models.enums import ImageFormat
 
 
@@ -161,6 +161,7 @@ class AppSettings(BaseSettings):
     log_fmt: str = "[{process}] {time} | {level}: {extra} {message}"
     size: ImageSize = ImageSize()
     uvicorn: dict[str, typing.Any] = Field(default_factory=dict)
+    auth: AuthSettings = AuthSettings(mode=AuthMode.off, oidc=None)
 
     model_config = SettingsConfigDict(
         env_file=".env",
@@ -249,64 +250,3 @@ class AppSettings(BaseSettings):
     ) -> tuple[PydanticBaseSettingsSource, ...]:
         return init_settings, env_settings, JsonConfigSettingsSource(
             settings_cls), dotenv_settings, file_secret_settings
-
-
-class BucketsMap(BaseModel):
-    """A mapping of buckets with metadata for bucket resolution.
-
-    Attributes:
-        source_bucket: The primary source bucket name.
-        buckets: Dictionary of bucket name to BucketSettings mappings.
-        all_source_buckets: Set of all source bucket names.
-        alias_map: Dictionary mapping aliases to bucket names.
-    """
-    source_bucket: str
-    buckets: dict[str, BucketSettings]
-    all_source_buckets: set[str]
-    alias_map: dict[str, str]
-
-
-def _build_buckets_map(settings: AppSettings) -> BucketsMap:
-    source_buckets = [s.source_bucket for s in settings.buckets.values() if s.source_bucket]
-    alias_map = {b.alias: name for name, b in settings.buckets.items() if b.alias}
-
-    base_source = settings.source_bucket or source_buckets[0]
-    buckets_dict = {**settings.buckets, base_source: BucketSettings(source_bucket=base_source, size=settings.size)}
-
-    if not settings.source_bucket:
-        source_buckets.append(base_source)
-
-    return BucketsMap(
-        source_bucket=base_source,
-        buckets=buckets_dict,
-        all_source_buckets=set(source_buckets),
-        alias_map=alias_map,
-    )
-
-
-@lru_cache
-def get_app_settings() -> AppSettings:
-    """Get the cached application settings instance.
-
-    Returns:
-        The singleton AppSettings instance.
-    """
-    return AppSettings()
-
-
-def create_buckets_map(settings: AppSettings | None = None) -> BucketsMap:
-    """Create a buckets map from settings or use cached settings.
-
-    Args:
-        settings: Optional AppSettings instance. If None, retrieves cached settings.
-
-    Returns:
-        A BucketsMap for bucket resolution.
-    """
-    settings = settings or get_app_settings()
-    return _build_buckets_map(settings)
-
-
-@lru_cache
-def get_buckets_map() -> BucketsMap:
-    return create_buckets_map()

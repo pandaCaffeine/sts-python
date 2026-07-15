@@ -2,6 +2,7 @@ from fastapi import status
 from fastapi.responses import Response, StreamingResponse, JSONResponse
 from starlette.background import BackgroundTask
 
+from sts.constants import HEADER_ETAG, HEADER_LEN
 from sts.config import BucketSettings
 from sts.file_storage.client import FileStorageClient
 from sts.file_storage.scanner import FileStorageScanner
@@ -10,9 +11,6 @@ from sts.images.processor import resize_image
 from sts.logs import ILogger
 from sts.models.file_storage import ScanResultFileFound, ScanResultCreateNew
 from sts.models.file_storage import StorageFileItem, ScanResultNotFound, ScanResultUseSourceFile
-
-_HEADER_ETAG = "Etag"
-_HEADER_LEN = "Content-Length"
 
 _NOT_FOUND_RESPONSE: JSONResponse = JSONResponse(
     status_code=status.HTTP_404_NOT_FOUND,
@@ -135,13 +133,13 @@ class ThumbnailService:
         return StreamingResponse(
             thumbnail.data,
             media_type=thumbnail.content_type,
-            headers={_HEADER_ETAG: put_result.etag, _HEADER_LEN: str(put_result.size)},
+            headers={HEADER_ETAG: put_result.etag, HEADER_LEN: str(put_result.size)},
         )
 
     def _get_file_response(self, file_storage_item: StorageFileItem, etag: str | None) -> Response:
         """Streams an existing file from storage, respecting Etag/304 caching."""
         if etag and file_storage_item.etag == etag:
-            headers = {_HEADER_ETAG: etag}
+            headers = {HEADER_ETAG: etag}
             return Response(status_code=status.HTTP_304_NOT_MODIFIED, headers=headers)
 
         stream = self._storage_client.open_stream(file_storage_item.bucket, file_storage_item.file_name)
@@ -149,7 +147,7 @@ class ThumbnailService:
             return _NOT_FOUND_RESPONSE
 
         background_task = BackgroundTask(stream.close)
-        headers = {_HEADER_ETAG: stream.etag, _HEADER_LEN: str(stream.content_length)}
+        headers = {HEADER_ETAG: stream.etag, HEADER_LEN: str(stream.content_length)}
 
         return StreamingResponse(
             stream.iter_content(1024 * 512),
