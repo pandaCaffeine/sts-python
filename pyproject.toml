@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "sts"
-version = "2.0.2"
+version = "2.1.0"
 description = "Simple thumbnail service"
 authors = ["Nikita Sakhno <adream74@gmail.com>"]
 license = "MIT"
