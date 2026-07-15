@@ -2,7 +2,7 @@
 
 # Simple Thumbnail Service (sts)
 
-Current version: `2.0.3`
+Current version: `2.1.0`
 
 The microservice serves thumbnail images in `minio` and does some ✨magic for you:
 
@@ -23,6 +23,7 @@ The microservice serves thumbnail images in `minio` and does some ✨magic for y
 2. `fastapi` - web framework
 3. `loguru` - for logging
 4. `pydantic-settings` - for reading settings
+5. `pyjwt[crypto]` - for validating JWTs issued by an OIDC provider
 
 ## Installation
 
@@ -80,9 +81,16 @@ Configuration files must be places inside image in folder `/code/`.
   },
   "source_bucket": "images",
   "log_level": "INFO",
-  "log_fmt": "{time} | {level}: {extra} {message}"
+  "log_fmt": "{time} | {level}: {extra} {message}",
+  "auth": {
+    "mode": "off"
+  }
 }
 ```
+
+ℹ️ The `auth` block enables optional JWT-based authentication. When omitted or set to
+`{"mode": "off"}`, all endpoints are publicly accessible. See the [Authentication](#authentication)
+section below for details on configuring OIDC validation against providers like Keycloak.
 
 The `s3` and `buckets` sections can be set as string values. The following example is equivalent to the JSON example
 above:
@@ -103,9 +111,13 @@ environment:
   config is optional.
 * `log_level` - logging level for `loguru`.
 * `log_fmt` - logging pattern for `loguru`.
+* `auth` - optional authentication configuration. Defaults to public access. See
+  [Authentication](#authentication) for the full schema and examples.
 
 ##### uvicorn specific settings
+
 You can set uvicorn specific settings in `uvicorn` section, default value is:
+
 ```json
 {
   "uvicorn": {
@@ -115,15 +127,17 @@ You can set uvicorn specific settings in `uvicorn` section, default value is:
   }
 }
 ```
+
 You can set all settings according to the official docs https://www.uvicorn.org/settings/.
 
 In most cases you may want to set following uvicorn settings:
-* `host` - bind socket to this host. Use `0.0.0.0` to make the application available on your local network. IPv6 addresses are supported, for example: `::`. Default: `0.0.0.0` (overridden in sts).
+
+* `host` - bind socket to this host. Use `0.0.0.0` to make the application available on your local network. IPv6
+  addresses are supported, for example: `::`. Default: `0.0.0.0` (overridden in sts).
 * `port` - bind to a socket with this port. Default: `80` (overridden on sts).
 * `workers` - use multiple worker processes. Defaults to the `$WEB_CONCURRENCY` environment variable if available, or 1.
-* `access_log` - enables access log. Use `False` to disable access log only, without changing log level  Default: `True`.
+* `access_log` - enables access log. Use `False` to disable access log only, without changing log level Default: `True`.
 * `log_level` - set the log level. Options: `critical`, `error`, `warning`, `info`, `debug`, `trace`. Default: `info`.
-
 
 #### S3 configs
 
@@ -160,21 +174,25 @@ The rest parameters have the same meaning as it described in S3 configs section.
   files. If this config is not set - the root `source_bucket` will be used.
 * `alias` - an optional alias for the bucket, used for alternative endpoint (see below).
 * `format` - thumbnail file format, available options:
-  * `jpeg` - JPEG file
-  * `png` - PNG file
-  * `none` - keep source file format
+    * `jpeg` - JPEG file
+    * `png` - PNG file
+    * `none` - keep source file format
 * `format_args` - optional arguments for file format, see description below.
 
 ℹ️ Description about `format_args`:
 
 Mostly you don't want to set these args because it can lead to unpredictable result like corrupted images, but if you
 want to, you can set any settings according to the PIL documentation:
+
 * for `jpeg`: https://pillow.readthedocs.io/en/stable/handbook/image-file-formats.html#jpeg-saving
 * for `png`: https://pillow.readthedocs.io/en/stable/handbook/image-file-formats.html#png-saving
 
 Unknown arguments are ignored. If not set, following arguments applied:
+
 ```json
-{ "optimize": true }
+{
+  "optimize": true
+}
 ```
 
 The bucket config can set as string value in http query-like way, for example:
@@ -207,6 +225,80 @@ configuration:
 * desired height is set to `200` pixels
 * alias is set to `small`
 
+## Authentication
+
+`sts` supports optional JWT-based authentication. The feature is **off by default** so
+existing deployments keep working without changes. When enabled, the service validates
+incoming bearer tokens against an OpenID Connect provider using
+locally-cached JWKS — no per-request calls to the IdP.
+
+### Modes
+
+| Mode   | Behaviour                                                                             |
+|--------|---------------------------------------------------------------------------------------|
+| `off`  | **Default.** All endpoints are publicly accessible; no token is required or inspected |
+| `oidc` | Endpoints to get files require a valid JWT. The healthcheck endpoint remains public.  |
+
+> ⚠️ When `mode=oidc` and a request lacks a valid token, the response is `401 Unauthorized`
+> with a `WWW-Authenticate: Bearer` header. The healthcheck endpoint (`/hc`, `/health`) is
+> always public regardless of mode, so external monitoring tools (Kubernetes probes, load
+> balancers) can still reach the service.
+
+### Schema
+
+```json
+{
+  "auth": {
+    "mode": "oidc",
+    "oidc": {
+      "issuer": "https://keycloak.example.com/realms/myrealm",
+      "audience": "sts",
+      "jwks_uri": null,
+      "jwks_ttl_seconds": 600,
+      "algorithms": [
+        "RS256"
+      ],
+      "cookie_name": "access_token",
+      "clock_skew_seconds": 60
+    }
+  }
+}
+```
+
+Or via environment variables (note the `__` delimiter for nested keys):
+
+```
+AUTH__MODE=oidc
+AUTH__OIDC__ISSUER=https://keycloak.example.com/realms/myrealm
+AUTH__OIDC__AUDIENCE=sts
+AUTH__OIDC__JWKS_TTL_SECONDS=600
+AUTH__OIDC__ALGORITHMS=RS256
+AUTH__OIDC__COOKIE_NAME=access_token
+AUTH__OIDC__CLOCK_SKEW_SECONDS=60
+```
+
+#### OIDC configuration reference
+
+* `mode` - either `off` (public access) or `oidc` (JWT validation required). Default: `off`.
+* `oidc.issuer` - **required when** `mode=oidc`. Base URL of the OIDC realm, e.g. `https://keycloak.example.com/realms/myrealm`. The JWKS endpoint is derived from this as `<issuer>/protocol/openid-connect/certs` unless `jwks_uri` is set explicitly.
+* `oidc.audience` - **required when** `mode=oidc`. Expected `aud` claim. Accepts a single string or a list. The token is accepted if its `aud` intersects with this value.
+* `oidc.jwks_uri` - optional. Override the JWKS endpoint URL. Use this if your IdP exposes JWKS at a non-standard path or behind a proxy.
+* `oidc.jwks_ttl_seconds` - JWKS cache lifetime in seconds. Default: `600`. The cache is keyed by `kid` (key id), so rotated keys do not invalidate already-cached entries.
+* `oidc.algorithms` - allowlist of accepted JWS algorithms. Default: `["RS256"]`. **Always set this explicitly** — relying on the token's own `alg` header is unsafe.
+* `oidc.cookie_name` - name of the cookie that may carry the bearer token. Default: `access_token`. Useful for browser-driven flows; the `Authorization: Bearer ...` header always takes priority over the cookie.
+* `oidc.clock_skew_seconds` - leeway applied to `exp` and `nbf` claims, in seconds. Default: `60`. Compensates for small clock drift between the IdP and `sts`.
+
+#### Token resolution order
+
+For each request, the bearer token is taken from, in order:
+* The `Authorization: Bearer <token>` request header (preferred).
+* The cookie named in `auth.oidc.cookie_name` (fallback for browser-driven flows).
+If neither is present, the request is treated as anonymous.
+
+#### Endpoints affected
+* `/{bucket}/{filename}` and `/{source_bucket}/{filename}/{alias}` - protected when mode=oidc.
+* `/hc`, `/health` - **always public**, regardless of auth.mode.
+
 ## Endpoints
 
 `sts` provides 4 endpoints:
@@ -215,6 +307,9 @@ configuration:
 2. `/{sourcebucket}/{filename}/{alias}` - an alternative endpoint that leads to thumbnail file by its alias
 3. `/hc` - health check endpoint
 4. `/health` - alternative route for the `/hc` route
+
+Endpoints 1 and 2 are protected by JWT authentication when `auth.mode=oidc`; see [Authentication](#authentication).
+They return `401 Unauthorized` with a `WWW-Authenticate: Bearer` header if no valid token is presented.
 
 ## Example
 
@@ -241,6 +336,7 @@ The repository contains an example nginx configuration file and a docker-compose
 7. test in browser medium thumbnail: `http://localhost/images/{file_name}/medium`
 
 ### Asynchronous version
+
 After converting all the endpoints (and logic behind) I run a small stress test:
 
 `wrk -t4 -c100 -d10s http://localhost:80/images/img0.jpg/small`
@@ -252,7 +348,8 @@ Which gave following results:
 | async   | ~800 |
 | sync    | ~900 |
 
-_Conclusion_: the minio client was not designed for asynchronous work, and using it in the event loop adds more overhead than it is worth.
+_Conclusion_: the minio client was not designed for asynchronous work, and using it in the event loop adds more overhead
+than it is worth.
 Image conversion to a thumbnail is a CPU-intensive task that does not make sense to perform in the event loop.
 
 See [async-endpoints](https://github.com/pandaCaffeine/sts-python/tree/feature/async-endpoints) branch.
@@ -267,5 +364,6 @@ There are no specific deadlines at this time, but we have some ideas for future 
 3. ✅ version 1.3: file configuration for thumbnails - ability to choose thumbnails file format and some options like
    quality
 4. 🔳 ~~version 1.4~~: make async endpoints (doesn't make sense, see above)
-5. ✅ version 1.5: add DI container 
+5. ✅ version 1.5: add DI container
 6. ✅ version 2.0: refactoring, fixes, code cleanup
+7. ✅ version 2.1: optional JWT-based authentication via OIDC (Keycloak-compatible)

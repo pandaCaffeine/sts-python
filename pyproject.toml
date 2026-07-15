@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "sts"
-version = "2.0.2"
+version = "2.1.0"
 description = "Simple thumbnail service"
 authors = ["Nikita Sakhno <adream74@gmail.com>"]
 license = "MIT"
@@ -18,11 +18,13 @@ poetry-core = "==2.4.0"
 uvicorn = "==0.34.2"
 dishka = "==1.5.3"
 urllib3 = "^2.7.0"
+pyjwt = { extras = ["crypto"], version = "^2.13.0" }
 
 [tool.poetry.group.dev.dependencies]
 pytest = "==8.3.4"
 mypy = "==1.14.1"
-pyrefly= "==1.0.0"
+pyrefly = "==1.0.0"
+magicmock = "^0.3"
 
 [build-system]
 requires = ["poetry-core"]

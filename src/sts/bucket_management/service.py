@@ -9,4 +9,4 @@ class BucketService(ABC):
     @abstractmethod
     def create_buckets(self) -> BucketsInfo:
         """ Tries to create source and thumbnail buckets in storage. If a bucket already exists - it won't be created."""
-        pass
+        ...
