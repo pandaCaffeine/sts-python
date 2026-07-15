@@ -8,7 +8,7 @@ DOCKERFILE="Dockerfile"
 PLATFORM="linux/amd64"
 
 # Get version from argument or use default
-VERSION="${1:-2.0}"
+VERSION="${1:-2.1.0}"
 FULL_IMAGE="${IMAGE_NAME}:${VERSION}"
 LATEST_IMAGE="${IMAGE_NAME}:latest"
 
@@ -27,8 +27,8 @@ echo "=== Image built successfully ==="
 echo "Pushing to Docker Hub..."
 
 # Push both version tag and latest
-# docker push "${FULL_IMAGE}"
-# docker push "${LATEST_IMAGE}"
+docker push "${FULL_IMAGE}"
+docker push "${LATEST_IMAGE}"
 
 echo "=== Done! ==="
 echo "Image pushed: ${FULL_IMAGE}"
