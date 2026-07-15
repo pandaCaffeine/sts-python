@@ -3,6 +3,7 @@ import typing
 from pydantic import BaseModel, HttpUrl, Field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict, PydanticBaseSettingsSource, JsonConfigSettingsSource
 
+from sts.config.auth import AuthSettings, AuthMode
 from sts.models.enums import ImageFormat
 
 
@@ -160,6 +161,7 @@ class AppSettings(BaseSettings):
     log_fmt: str = "[{process}] {time} | {level}: {extra} {message}"
     size: ImageSize = ImageSize()
     uvicorn: dict[str, typing.Any] = Field(default_factory=dict)
+    auth: AuthSettings = AuthSettings(mode=AuthMode.off, oidc=None)
 
     model_config = SettingsConfigDict(
         env_file=".env",

@@ -12,10 +12,12 @@ from typing import Annotated
 from dishka import FromDishka
 from dishka.integrations.fastapi import DishkaSyncRoute
 from fastapi import APIRouter, Header, Response
+from fastapi.params import Depends
 
 from sts.images.thumbnail import ThumbnailService
+from sts.security.dependencies import require_auth
 
-images_router = APIRouter(route_class=DishkaSyncRoute)
+images_router = APIRouter(route_class=DishkaSyncRoute, dependencies=[Depends(require_auth)])
 
 _EtagDep = Annotated[str | None, Header(alias="If-None-Match")]
 
