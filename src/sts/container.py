@@ -4,8 +4,10 @@ Dependency injection container configuration using Dishka.
 This module sets up the dependency injection container for the application,
 organizing providers into APP and REQUEST scopes for optimal resource management.
 """
+from urllib.parse import urljoin
 
-from sts.config.auth import AuthSettings, AuthMode
+from jwt import PyJWKClient
+from sts.config.auth import AuthSettings, AuthMode, OidcSettings
 import fastapi
 import loguru
 import urllib3
@@ -138,6 +140,15 @@ def _provide_bucket_service(
     )
 
 
+def _create_jwks(settings: OidcSettings) -> PyJWKClient:
+    jwks_uri = settings.jwks_uri or urljoin(
+        str(settings.issuer).rstrip("/") + "/",
+        "protocol/openid-connect/certs"
+    )
+
+    return PyJWKClient(jwks_uri, cache_keys=True, lifespan=settings.jwks_ttl_seconds)
+
+
 def _provide_jwt_verifier(
         auth: AuthSettings
 ) -> JWTVerifier:
@@ -147,7 +158,8 @@ def _provide_jwt_verifier(
     if not auth.oidc:
         raise ValueError("auth.oidc must be provided when auth.mode='oidc'")
 
-    return OidcJWTVerifier(settings=auth.oidc)
+    jwks = _create_jwks(auth.oidc)
+    return OidcJWTVerifier(jwks, auth.oidc)
 
 
 def _create_provider() -> Provider:

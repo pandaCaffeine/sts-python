@@ -1,6 +1,4 @@
-from sts.security.models import VerificationResult
 from typing import override
-from urllib.parse import urljoin
 
 import loguru
 from jwt import PyJWKClient, ExpiredSignatureError, InvalidAudienceError, InvalidIssuerError, InvalidSignatureError, \
@@ -8,28 +6,20 @@ from jwt import PyJWKClient, ExpiredSignatureError, InvalidAudienceError, Invali
 
 from sts.config.auth import OidcSettings
 from sts.security.jwt_verifier import JWTVerifier
+from sts.security.models import VerificationResult
 from sts.security.models import VerifiedToken, InvalidToken
 
 
 class OidcJWTVerifier(JWTVerifier):
 
-    def __init__(self, settings: OidcSettings) -> None:
+    def __init__(self, jwks_client: PyJWKClient, settings: OidcSettings) -> None:
         if settings is None:
             raise ValueError("settings is required")
 
         self._settings = settings
         self._logger = loguru.logger.bind(source="oidc_jwt_verifier")
 
-        jwks_uri = settings.jwks_uri or urljoin(
-            str(settings.issuer).rstrip("/") + "/",
-            "protocol/openid-connect/certs"
-        )
-
-        self._jwks_client = PyJWKClient(
-            jwks_uri,
-            cache_keys=True,
-            lifespan=settings.jwks_ttl_seconds
-        )
+        self._jwks_client = jwks_client
 
     @override
     def verify(self, token: str) -> VerificationResult:
