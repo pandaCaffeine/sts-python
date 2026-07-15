@@ -1,3 +1,4 @@
+from sts.security.models import VerificationResult
 from typing import override
 from urllib.parse import urljoin
 
@@ -31,7 +32,7 @@ class OidcJWTVerifier(JWTVerifier):
         )
 
     @override
-    def verify(self, token: str) -> VerifiedToken | InvalidToken:
+    def verify(self, token: str) -> VerificationResult:
         if not token:
             return InvalidToken(reason="missing")
 

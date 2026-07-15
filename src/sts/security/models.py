@@ -16,3 +16,17 @@ class InvalidToken:
     reason: str
 
 
+type VerificationResult = VerifiedToken | InvalidToken
+
+
+@dataclass(frozen=True, slots=True)
+class Anonymous:
+    """ Marker for request tha did not present a valid token. """
+
+
+@dataclass(frozen=True, slots=True)
+class Authenticated:
+    token: VerifiedToken
+
+
+type Principal = Anonymous | Authenticated

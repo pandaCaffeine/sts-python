@@ -26,11 +26,11 @@ from sts.healthcheck.writer import HealthCheckWriter
 from sts.images.lock_manager import LockManager
 from sts.images.thumbnail import ThumbnailService
 from sts.logs import ILogger
-from sts.security.dependencies import Authenticator
+from sts.security.authenticator import Authenticator
 from sts.security.extractor import TokenExtractor
 from sts.security.jwt_verifier import JWTVerifier
 from sts.security.off_jwt_verifier import OffJWTVerifier
-from sts.security.oidc import OidcJWTVerifier
+from sts.security.oidc_jwt_verifier import OidcJWTVerifier
 
 
 def _provide_app_settings() -> AppSettings:
