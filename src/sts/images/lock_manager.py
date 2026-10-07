@@ -8,12 +8,15 @@ class LockManager:
     Manages thread-safe locks with automatic cleanup.
 
     Provides a context-manager based API for acquiring per-key locks.
-    Locks are automatically removed from memory after the protected
-    block is exited, preventing memory leaks under high concurrency.
+    Locks are reference-counted: a lock object stays the same for all
+    waiters of a key and is removed from memory only after the last
+    holder/waiter leaves, which both prevents memory leaks and keeps
+    mutual exclusion intact under concurrency.
     """
 
     def __init__(self):
         self._locks: dict[str, Lock] = {}
+        self._ref_counts: dict[str, int] = {}
         self._meta_lock = Lock()
 
     @contextmanager
@@ -30,11 +33,20 @@ class LockManager:
                  parallel execution.
         """
         with self._meta_lock:
-            file_lock = self._locks.setdefault(key, Lock())
+            file_lock = self._locks.get(key)
+            if file_lock is None:
+                file_lock = Lock()
+                self._locks[key] = file_lock
+            self._ref_counts[key] = self._ref_counts.get(key, 0) + 1
 
         try:
             with file_lock:
                 yield
         finally:
             with self._meta_lock:
-                self._locks.pop(key, None)
+                remaining = self._ref_counts.get(key, 0) - 1
+                if remaining <= 0:
+                    self._ref_counts.pop(key, None)
+                    self._locks.pop(key, None)
+                else:
+                    self._ref_counts[key] = remaining

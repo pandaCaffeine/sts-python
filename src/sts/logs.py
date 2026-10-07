@@ -19,7 +19,7 @@ class ILogger(Protocol):
 def configure_logger(app_settings: AppSettings) -> None:
     """
     Setups logging configuration for the app. This method removes all default settings and adds new handlers:
-    to console and to file. Log files are saved to logs/log_{time}.log files with retentiotion for 10 days.
+    to console and to file. Log files are saved to logs/log_{time}.log files, rotated by size and retained for 10 days.
     :param app_settings: Application settings
     :return: None
     """
@@ -28,4 +28,4 @@ def configure_logger(app_settings: AppSettings) -> None:
     logger.add(sys.stdout, level=app_settings.log_level.upper(), format=app_settings.log_fmt)
     logger.add(sys.stderr, level="ERROR", format=app_settings.log_fmt)
     logger.add("logs/log_{time}.log", level=app_settings.log_level.upper(), retention="10 days",
-               format=app_settings.log_fmt)
+               rotation="100 MB", format=app_settings.log_fmt)

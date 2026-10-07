@@ -81,6 +81,50 @@ def test_parallel_execution_different_keys():
     assert total_time < 0.25
 
 
+def test_mutual_exclusion_when_waiter_still_queued():
+    """Regression: a lock must not be replaced while a waiter is queued on it.
+
+    The old implementation popped the key from the dict as soon as the
+    holder exited, so a newcomer could create a fresh lock object and enter
+    the critical section while a queued waiter was still blocked on the old
+    lock object.
+    """
+    manager = LockManager()
+    first_entered = threading.Event()
+    first_can_exit = threading.Event()
+    occupancy = []
+    overlaps = []
+
+    def worker(number):
+        with manager.acquire("race_key"):
+            occupancy.append(number)
+            if len(occupancy) > 1:
+                overlaps.append(number)
+            if number == 1:
+                first_entered.set()
+                first_can_exit.wait(timeout=2)
+            time.sleep(0.05)
+            occupancy.pop()
+
+    t1 = threading.Thread(target=worker, args=(1,))
+    t2 = threading.Thread(target=worker, args=(2,))
+    t1.start()
+    assert first_entered.wait(timeout=2)
+    t2.start()
+    time.sleep(0.1)  # give t2 time to register on the same lock and block
+    first_can_exit.set()
+    t1.join(timeout=2)
+
+    # t3 arrives after the holder left but while t2 is still inside
+    t3 = threading.Thread(target=worker, args=(3,))
+    t3.start()
+    t2.join(timeout=2)
+    t3.join(timeout=2)
+
+    assert not overlaps
+    assert "race_key" not in manager._locks
+
+
 def test_lock_memory_cleanup_under_load():
     """Verify that no memory is leaked after a large number of requests."""
     manager = LockManager()

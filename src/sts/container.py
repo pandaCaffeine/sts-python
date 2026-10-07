@@ -18,6 +18,7 @@ from minio import Minio
 from sts.bucket_management.minio import MinioBucketService
 from sts.bucket_management.service import BucketService
 from sts.config import AppSettings, BucketsMap, create_buckets_map, S3Settings
+from sts.file_storage.caching_client import CachingFileStorageClient
 from sts.file_storage.client import FileStorageClient
 from sts.file_storage.minio_client import MinioFileStorageClient
 from sts.file_storage.minio_scanner import MinioFileStorageScanner
@@ -90,8 +91,8 @@ def _provide_minio_client(s3_settings: S3Settings) -> Minio:
 
 
 def _provide_storage_client(minio: Minio) -> FileStorageClient:
-    """Provide file storage client backed by Minio."""
-    return MinioFileStorageClient(minio)
+    """Provide file storage client backed by Minio with a short-lived stat cache."""
+    return CachingFileStorageClient(MinioFileStorageClient(minio))
 
 
 def _provide_request_logger(req: fastapi.Request) -> ILogger:
