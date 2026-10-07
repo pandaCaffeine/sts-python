@@ -3,6 +3,25 @@ from contextlib import contextmanager
 from threading import Lock
 
 
+class _CountedLock:
+    """A lock with a waiter counter.
+
+    Not thread-safe: the counter must only be mutated while holding
+    ``LockManager._meta_lock``.
+    """
+
+    def __init__(self):
+        self.lock = Lock()
+        self._counter: int = 0
+
+    def inc(self) -> None:
+        self._counter += 1
+
+    def dec(self) -> int:
+        self._counter -= 1
+        return self._counter
+
+
 class LockManager:
     """
     Manages thread-safe locks with automatic cleanup.
@@ -15,8 +34,7 @@ class LockManager:
     """
 
     def __init__(self):
-        self._locks: dict[str, Lock] = {}
-        self._ref_counts: dict[str, int] = {}
+        self._locks: dict[str, _CountedLock] = {}
         self._meta_lock = Lock()
 
     @contextmanager
@@ -35,18 +53,15 @@ class LockManager:
         with self._meta_lock:
             file_lock = self._locks.get(key)
             if file_lock is None:
-                file_lock = Lock()
+                file_lock = _CountedLock()
                 self._locks[key] = file_lock
-            self._ref_counts[key] = self._ref_counts.get(key, 0) + 1
+            file_lock.inc()
 
         try:
-            with file_lock:
+            with file_lock.lock:
                 yield
         finally:
             with self._meta_lock:
-                remaining = self._ref_counts.get(key, 0) - 1
+                remaining = file_lock.dec()
                 if remaining <= 0:
-                    self._ref_counts.pop(key, None)
                     self._locks.pop(key, None)
-                else:
-                    self._ref_counts[key] = remaining
